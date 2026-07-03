@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.7 - Multiplayer Core
+
+- Replaced generic `extrabody1/2/3` identifiers with namespaced Better Inventory
+  slot IDs to avoid collisions with other equipment-slot mods.
+- Added replication contract checks for main inventory netvars, equipment netvars,
+  player replicas, and late-attached classified entities.
+- Added a client/server core protocol handshake that reports mismatched local mod
+  builds during join.
+- Added dedicated Bag-slot support to client-side `Has`, `HasItemWithTag`, and
+  `FindItem` reads so remote clients see backpack contents consistently.
+- Added a server-side sort RPC cooldown and per-player re-entrancy lock.
+- Sort now rejects requests while loading or holding an active cursor item.
+- Sort operations track removed items and restore any valid ownerless item after
+  an error or failed placement.
+- Existing v0.2.6 saves remain compatible because DST reloads equipment from each
+  item's current `equippable.equipslot` instead of trusting the old save key.
+
 ## v0.2.6 - Debug Baseline
 
 - Replaced the late inventory constructor/netvar patches with one early

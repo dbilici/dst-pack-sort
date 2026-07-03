@@ -1,5 +1,5 @@
 -- Better Inventory
--- v0.2.6 debug baseline.
+-- v0.2.7 multiplayer core.
 --
 -- Main goals:
 --   - 24-slot inventory foundation.
@@ -50,6 +50,8 @@ local MAX_ITEM_SLOTS = CONFIG.inventory_size == 24 and 24 or 15
 local USE_EXPANDED_INVENTORY = MAX_ITEM_SLOTS > 15
 local USE_2X12_LAYOUT = USE_EXPANDED_INVENTORY and CONFIG.inventory_layout == "2x12"
 local UI_SCALE = CONFIG.ui_scale or 0.85
+local CORE_PROTOCOL_VERSION = 1
+local CORE_RPC_NAMESPACE = "BetterInventoryCore"
 
 --------------------------------------------------------------------------
 -- Debug helper
@@ -70,6 +72,10 @@ local function DebugLog(message)
     end
 end
 
+local function DebugWarn(message)
+    print("[Better Inventory][WARN] " .. tostring(message))
+end
+
 --------------------------------------------------------------------------
 -- Extra equipment slot definitions
 --------------------------------------------------------------------------
@@ -77,24 +83,24 @@ end
 local SLOT_DEFS = {
     BAG = {
         enabled = CONFIG.slot_bag,
-        eslot = "extrabody1",
-        global_key = "EXTRABODY1",
+        eslot = "betterinventory_bag",
+        global_key = "BETTERINVENTORY_BAG",
         image = "backpack.tex",
         tag = "betterinventory_bag",
         label = "Bag",
     },
     ARMOR = {
         enabled = CONFIG.slot_armor,
-        eslot = "extrabody2",
-        global_key = "EXTRABODY2",
+        eslot = "betterinventory_armor",
+        global_key = "BETTERINVENTORY_ARMOR",
         image = "armor.tex",
         tag = "betterinventory_armor",
         label = "Armor",
     },
     ACCESSORY = {
         enabled = CONFIG.slot_accessory,
-        eslot = "extrabody3",
-        global_key = "EXTRABODY3",
+        eslot = "betterinventory_accessory",
+        global_key = "BETTERINVENTORY_ACCESSORY",
         image = "amulet.tex",
         tag = "betterinventory_accessory",
         label = "Accessory",
@@ -106,6 +112,10 @@ local ENABLED_EXTRA_SLOTS = {}
 for _, key in ipairs({"BAG", "ARMOR", "ACCESSORY"}) do
     local def = SLOT_DEFS[key]
     if def.enabled then
+        local existing = EQUIPSLOTS[def.global_key]
+        if existing ~= nil and existing ~= def.eslot then
+            GLOBAL.error("Better Inventory: equip slot collision for " .. def.global_key)
+        end
         EQUIPSLOTS[def.global_key] = def.eslot
         table.insert(ENABLED_EXTRA_SLOTS, def)
         DebugLog("Registered extra equip slot: " .. def.label .. " -> " .. def.eslot)
@@ -204,6 +214,131 @@ if USE_EXPANDED_INVENTORY then
 end
 
 --------------------------------------------------------------------------
+-- Multiplayer replication contract diagnostics
+--------------------------------------------------------------------------
+
+local function ValidateClassifiedContract(classified, context)
+    if classified == nil then
+        return false
+    end
+
+    local valid = true
+    local item_count = classified._items ~= nil and #classified._items or 0
+    if item_count ~= MAX_ITEM_SLOTS then
+        DebugWarn(tostring(context) .. ": classified slot count=" .. tostring(item_count)
+            .. ", expected=" .. tostring(MAX_ITEM_SLOTS))
+        valid = false
+    end
+
+    for _, def in ipairs(ENABLED_EXTRA_SLOTS) do
+        if classified._equips == nil or classified._equips[def.eslot] == nil then
+            DebugWarn(tostring(context) .. ": missing equip netvar for " .. tostring(def.eslot))
+            valid = false
+        end
+    end
+
+    if valid then
+        DebugLog(tostring(context) .. ": replication contract OK; protocol="
+            .. tostring(CORE_PROTOCOL_VERSION) .. ", slots=" .. tostring(item_count))
+    end
+
+    return valid
+end
+
+AddPrefabPostInit("inventory_classified", function(inst)
+    inst:DoStaticTaskInTime(0, function()
+        if inst:IsValid() then
+            ValidateClassifiedContract(inst, GLOBAL.TheWorld ~= nil and GLOBAL.TheWorld.ismastersim
+                and "server classified" or "client classified")
+        end
+    end)
+end)
+
+local function ValidatePlayerInventoryContract(inst, attempt)
+    if inst == nil or not inst:IsValid() then
+        return
+    end
+
+    local inventory = inst.components ~= nil and inst.components.inventory or nil
+    local replica = inst.replica ~= nil and inst.replica.inventory or nil
+    local num_slots = inventory ~= nil and inventory:GetNumSlots()
+        or replica ~= nil and replica:GetNumSlots() or 0
+    local context = "player " .. tostring(inst.userid or inst.prefab or inst.GUID)
+
+    if num_slots ~= MAX_ITEM_SLOTS then
+        DebugWarn(context .. ": inventory slot count=" .. tostring(num_slots)
+            .. ", expected=" .. tostring(MAX_ITEM_SLOTS))
+    end
+
+    local classified = replica ~= nil and replica.classified or nil
+    if classified ~= nil then
+        ValidateClassifiedContract(classified, context)
+    elseif (attempt or 1) < 4 then
+        inst:DoTaskInTime(0.5, function()
+            ValidatePlayerInventoryContract(inst, (attempt or 1) + 1)
+        end)
+    else
+        DebugWarn(context .. ": classified was not attached after retries")
+    end
+end
+
+AddPlayerPostInit(function(inst)
+    inst:DoTaskInTime(0, function()
+        ValidatePlayerInventoryContract(inst, 1)
+    end)
+end)
+
+--------------------------------------------------------------------------
+-- Client/server core protocol handshake
+--------------------------------------------------------------------------
+
+AddClientModRPCHandler(CORE_RPC_NAMESPACE, "ProtocolStatus", function(server_protocol, compatible)
+    if compatible then
+        DebugLog("Core protocol handshake OK; protocol=" .. tostring(server_protocol))
+    else
+        DebugWarn("Core protocol mismatch: client=" .. tostring(CORE_PROTOCOL_VERSION)
+            .. ", server=" .. tostring(server_protocol))
+    end
+end)
+
+AddModRPCHandler(CORE_RPC_NAMESPACE, "Hello", function(player, client_protocol)
+    local compatible = GLOBAL.tonumber(client_protocol) == CORE_PROTOCOL_VERSION
+    if not compatible then
+        DebugWarn("Core protocol mismatch for " .. tostring(player ~= nil and player.userid or "unknown")
+            .. ": client=" .. tostring(client_protocol)
+            .. ", server=" .. tostring(CORE_PROTOCOL_VERSION))
+    end
+
+    if player ~= nil and player.userid ~= nil then
+        local rpc = GLOBAL.GetClientModRPC(CORE_RPC_NAMESPACE, "ProtocolStatus")
+        GLOBAL.SendModRPCToClient(rpc, player.userid, CORE_PROTOCOL_VERSION, compatible)
+    end
+end)
+
+local function SendCoreProtocolHandshake(inst, attempt)
+    if inst == nil or not inst:IsValid() then
+        return
+    end
+
+    if inst == GLOBAL.ThePlayer then
+        local rpc = GLOBAL.GetModRPC(CORE_RPC_NAMESPACE, "Hello")
+        GLOBAL.SendModRPCToServer(rpc, CORE_PROTOCOL_VERSION)
+    elseif (attempt or 1) < 4 then
+        inst:DoTaskInTime(0.5, function()
+            SendCoreProtocolHandshake(inst, (attempt or 1) + 1)
+        end)
+    end
+end
+
+if not (TheNet ~= nil and TheNet.IsDedicated ~= nil and TheNet:IsDedicated()) then
+    AddPlayerPostInit(function(inst)
+        inst:DoTaskInTime(0.5, function()
+            SendCoreProtocolHandshake(inst, 1)
+        end)
+    end)
+end
+
+--------------------------------------------------------------------------
 -- Separate bag slot / overflow-container compatibility
 --------------------------------------------------------------------------
 
@@ -251,18 +386,79 @@ if IsExtraSlotEnabled("BAG") then
             return
         end
 
+        local function GetDedicatedBagContainer(self)
+            local bag = self:GetEquippedItem(BAG_SLOT)
+            return bag ~= nil and bag.replica ~= nil and bag.replica.container or nil
+        end
+
         local GetOverflowContainer_Base = inst.GetOverflowContainer
         inst.GetOverflowContainer = function(self, ...)
             if self.ignoreoverflow then
                 return nil
             end
 
-            local bag = self:GetEquippedItem(BAG_SLOT)
-            if bag ~= nil and bag.replica ~= nil and bag.replica.container ~= nil then
-                return bag.replica.container
+            local bag_container = GetDedicatedBagContainer(self)
+            if bag_container ~= nil then
+                return bag_container
             end
 
             return GetOverflowContainer_Base(self, ...)
+        end
+
+        -- Several classified helpers capture vanilla's BODY-only overflow
+        -- lookup as a local function. Patch their exported read APIs so remote
+        -- clients still count and find contents in the dedicated bag slot.
+        if inst.Has ~= nil then
+            local Has_Base = inst.Has
+            inst.Has = function(self, prefab, amount, checkallcontainers, ...)
+                local has, count = Has_Base(self, prefab, amount, checkallcontainers, ...)
+                count = count or 0
+
+                local bag_container = GetDedicatedBagContainer(self)
+                local already_counted = false
+                if checkallcontainers and bag_container ~= nil and bag_container.inst ~= nil
+                    and self._parent ~= nil and self._parent.replica ~= nil
+                    and self._parent.replica.inventory ~= nil then
+                    local containers = self._parent.replica.inventory:GetOpenContainers()
+                    already_counted = containers ~= nil and containers[bag_container.inst] == true
+                end
+
+                if bag_container ~= nil and not already_counted then
+                    local _, bag_count = bag_container:Has(prefab, amount, checkallcontainers)
+                    count = count + (bag_count or 0)
+                end
+
+                return count >= (amount or 1), count
+            end
+        end
+
+        if inst.HasItemWithTag ~= nil then
+            local HasItemWithTag_Base = inst.HasItemWithTag
+            inst.HasItemWithTag = function(self, tag, amount, ...)
+                local _, count = HasItemWithTag_Base(self, tag, amount, ...)
+                count = count or 0
+
+                local bag_container = GetDedicatedBagContainer(self)
+                if bag_container ~= nil then
+                    local _, bag_count = bag_container:HasItemWithTag(tag, amount)
+                    count = count + (bag_count or 0)
+                end
+
+                return count >= (amount or 1), count
+            end
+        end
+
+        if inst.FindItem ~= nil then
+            local FindItem_Base = inst.FindItem
+            inst.FindItem = function(self, fn, ...)
+                local item = FindItem_Base(self, fn, ...)
+                if item ~= nil then
+                    return item
+                end
+
+                local bag_container = GetDedicatedBagContainer(self)
+                return bag_container ~= nil and bag_container:FindItem(fn) or nil
+            end
         end
     end)
 end
@@ -614,6 +810,8 @@ end
 
 local SORT_RPC_NAMESPACE = "BetterInventory"
 local SORT_RPC_NAME = "SortInventory"
+local SORT_RPC_COOLDOWN = 0.75
+local SORT_REQUEST_STATE = GLOBAL.setmetatable({}, { __mode = "k" })
 
 local CATEGORY_SORT_ORDER = {
     tool = 10,
@@ -813,72 +1011,139 @@ local function SortItemsForInventory(items)
     return items
 end
 
+local function IsItemAttachedToInventory(item)
+    local inventoryitem = item ~= nil and item.components ~= nil and item.components.inventoryitem or nil
+    return inventoryitem ~= nil and inventoryitem.owner ~= nil
+end
+
+local function RestoreDetachedSortItems(inventory, records)
+    for _, record in ipairs(records) do
+        local item = record.item
+        if item ~= nil and item:IsValid() and not IsItemAttachedToInventory(item) then
+            local preferred_slot = inventory:GetItemInSlot(record.slot) == nil and record.slot or nil
+            local given = inventory:GiveItem(item, preferred_slot)
+            if not given and item:IsValid() and not IsItemAttachedToInventory(item) then
+                inventory:GiveItem(item)
+            end
+        end
+    end
+end
+
 local function SortInventoryForPlayer(player)
     if not CONFIG.sort_enabled then
-        return
+        return false
     end
 
     if player == nil or not player:IsValid() or player.components == nil or player.components.inventory == nil then
-        return
+        return false
     end
 
     local inventory = player.components.inventory
+    if inventory.isloading or inventory:GetActiveItem() ~= nil then
+        DebugLog("Rejected sort while inventory is loading or holding an active item")
+        return false
+    end
+
     local num_slots = inventory.GetNumSlots ~= nil and inventory:GetNumSlots() or MAX_ITEM_SLOTS
     num_slots = math.min(num_slots or MAX_ITEM_SLOTS, MAX_ITEM_SLOTS)
 
     local items = {}
     local occupied_slots = {}
+    local removed_records = {}
 
-    for slot = 1, num_slots do
-        local item = inventory:GetItemInSlot(slot)
-        if item ~= nil then
-            local inventoryitem = item.components ~= nil and item.components.inventoryitem or nil
-            if inventoryitem ~= nil and inventoryitem.islockedinslot then
-                occupied_slots[slot] = true
-            else
-                local removed = inventory:RemoveItem(item, true)
-                if removed ~= nil then
-                    table.insert(items, removed)
-                else
+    local ok, err = GLOBAL.pcall(function()
+        for slot = 1, num_slots do
+            local item = inventory:GetItemInSlot(slot)
+            if item ~= nil then
+                local inventoryitem = item.components ~= nil and item.components.inventoryitem or nil
+                if inventoryitem ~= nil and inventoryitem.islockedinslot then
                     occupied_slots[slot] = true
-                    DebugLog("Sort kept item in slot " .. tostring(slot) .. ": removal failed")
+                else
+                    local removed = inventory:RemoveItem(item, true)
+                    if removed ~= nil then
+                        table.insert(items, removed)
+                        table.insert(removed_records, { item = removed, slot = slot })
+                    else
+                        occupied_slots[slot] = true
+                        DebugWarn("Sort kept item in slot " .. tostring(slot) .. ": removal failed")
+                    end
                 end
             end
         end
-    end
 
-    items = MergePartialStacks(items)
-    items = SortItemsForInventory(items)
+        items = MergePartialStacks(items)
+        items = SortItemsForInventory(items)
 
-    local slot = 1
-    for _, item in ipairs(items) do
-        if item ~= nil and item:IsValid() then
-            while slot <= num_slots and (occupied_slots[slot] or inventory:GetItemInSlot(slot) ~= nil) do
-                slot = slot + 1
-            end
+        local slot = 1
+        for _, item in ipairs(items) do
+            if item ~= nil and item:IsValid() then
+                while slot <= num_slots and (occupied_slots[slot] or inventory:GetItemInSlot(slot) ~= nil) do
+                    slot = slot + 1
+                end
 
-            if slot > num_slots then
-                DebugLog("Sort ran out of slots; returning " .. tostring(item.prefab))
-                inventory:GiveItem(item)
-            else
-                local given = inventory:GiveItem(item, slot)
-                if not given then
-                    DebugLog("Sort could not place " .. tostring(item.prefab) .. " in slot " .. tostring(slot))
+                if slot > num_slots then
+                    DebugWarn("Sort ran out of slots; returning " .. tostring(item.prefab))
                     inventory:GiveItem(item)
+                else
+                    local given = inventory:GiveItem(item, slot)
+                    if not given then
+                        DebugWarn("Sort could not place " .. tostring(item.prefab)
+                            .. " in slot " .. tostring(slot))
+                        inventory:GiveItem(item)
+                    end
+                    slot = slot + 1
                 end
-                slot = slot + 1
             end
         end
+    end)
+
+    -- Whether the operation completed or raised, never leave a valid removed
+    -- item ownerless. Merged source stacks may be invalid by design and are
+    -- therefore skipped.
+    RestoreDetachedSortItems(inventory, removed_records)
+
+    if not ok then
+        DebugWarn("Sort transaction recovered after error: " .. tostring(err))
+        return false
     end
 
     DebugLog("Sorted inventory for " .. tostring(player.name or player.prefab or "player")
         .. " using mode=" .. tostring(CONFIG.sort_mode)
         .. ", merge_stacks=" .. tostring(CONFIG.sort_merge_stacks))
+    return true
 end
 
 if CONFIG.sort_enabled then
     AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_RPC_NAME, function(player)
-        SortInventoryForPlayer(player)
+        if player == nil or not player:IsValid() then
+            return
+        end
+
+        local now = GLOBAL.GetTime()
+        local state = SORT_REQUEST_STATE[player]
+        if state == nil then
+            state = { busy = false, last_request = -SORT_RPC_COOLDOWN }
+            SORT_REQUEST_STATE[player] = state
+        end
+
+        if state.busy or now - state.last_request < SORT_RPC_COOLDOWN then
+            DebugLog("Rejected duplicate sort RPC for " .. tostring(player.userid or player.GUID))
+            return
+        end
+
+        if player.sg ~= nil and player.sg:HasStateTag("busy") then
+            DebugLog("Rejected sort RPC while player is busy")
+            return
+        end
+
+        state.last_request = now
+        state.busy = true
+        local ok, err = GLOBAL.pcall(SortInventoryForPlayer, player)
+        state.busy = false
+
+        if not ok then
+            DebugWarn("Unhandled sort RPC error: " .. tostring(err))
+        end
     end)
 
     if not (TheNet ~= nil and TheNet.IsDedicated ~= nil and TheNet:IsDedicated()) then
@@ -930,7 +1195,8 @@ if CONFIG.sort_enabled then
     end
 end
 
-DebugLog("Loaded debug baseline. Inventory slots=" .. tostring(MAX_ITEM_SLOTS)
+DebugLog("Loaded multiplayer core. Protocol=" .. tostring(CORE_PROTOCOL_VERSION)
+    .. ", inventory slots=" .. tostring(MAX_ITEM_SLOTS)
     .. ", layout=" .. tostring(CONFIG.inventory_layout)
     .. ", ui_scale=" .. tostring(UI_SCALE)
     .. ", bag=" .. tostring(CONFIG.slot_bag)
