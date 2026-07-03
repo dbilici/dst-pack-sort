@@ -2,22 +2,27 @@ name = "Better Inventory"
 description = [[
 Expanded inventory + utility equipment slots + inventory sort for Don't Starve Together.
 
-Current debug baseline build:
+Current multiplayer core build:
 - Optional 24-slot inventory foundation
 - Unified server/client/classified slot count for usable slots 16-24
+- Namespaced equipment slots to avoid collisions with other mods
 - Compact 2 x 12 inventory bar layout
 - Fitted custom background for the 2-row layout
 - Separate optional Bag / Armor / Accessory equip slots
 - Dedicated bag slot keeps vanilla overflow-container behavior
+- Client bag-content reads account for the dedicated Bag slot
 - Vanilla-only item slot rules for safer testing
 - Inventory sort hotkey with optional stack merging
+- Server-side sort cooldown, re-entrancy lock, and item recovery
 - Locked-slot items remain fixed during sorting
+- Late-join replication contract diagnostics
+- Client/server core protocol handshake
 - Debug mode for log/chat diagnostics
 
 Quick Draw is intentionally removed because vanilla quick equip/swap already covers that use case.
 ]]
 author = "Dogan Bilici"
-version = "0.2.6-debug-baseline"
+version = "0.2.7-multiplayer-core"
 api_version = 10
 priority = 100
 

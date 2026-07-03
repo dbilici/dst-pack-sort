@@ -1,3 +1,29 @@
+# v0.2.7 multiplayer core test focus
+
+This pass freezes feature work and focuses on server/client invariants.
+
+Test matrix:
+
+1. Host a world, fill slots 16-24, and connect a second client after the items
+   already exist.
+2. On both clients, move stacks between slots 1-24 and verify the other screen
+   updates without ghost items.
+3. Equip a backpack in the Bag slot and verify both clients can count, find,
+   craft from, open, and close its contents.
+4. Spam the sort hotkey; the server must accept at most one request per cooldown
+   and must never duplicate, delete, or leave an item on the cursor.
+5. Attempt sorting with an active cursor item and with a locked/cursed slot item.
+6. Disconnect and reconnect the second client, then repeat inventory and bag reads.
+7. Save/reload, die/revive, and travel Forest -> Caves -> Forest.
+8. Search logs for `[Better Inventory][WARN]`; any replication-contract warning is
+   a release blocker.
+
+Expected debug success lines include `replication contract OK`, protocol `1`, and
+slot count `24` on both server and client. Each joining client should also log
+`Core protocol handshake OK`.
+
+---
+
 # v0.2.6 debug baseline test focus
 
 This pass establishes a safer baseline before adding features:
