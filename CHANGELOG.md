@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added server-authoritative sorting for the equipped bag on a separate,
+  configurable hotkey (default `F6`). Bag sorting never intentionally moves
+  items between the bag and main inventory.
+- Bag sorting preserves container item restrictions, built-in locked items,
+  deterministic condition ordering, stack merging, and transaction recovery.
 - Added server-authoritative manual slot locks. Hover a main inventory slot and
   press the configurable lock key (default `L`) to reserve that slot during
   sorting; locks are saved with the player and restored after reload.

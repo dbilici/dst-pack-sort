@@ -13,6 +13,7 @@ Current multiplayer core build:
 - Client bag-content reads account for the dedicated Bag slot
 - Vanilla-only item slot rules for safer testing
 - Inventory sort hotkey with optional stack merging
+- Separate hotkey to sort the equipped bag without moving items between containers
 - Hover a main inventory slot and press a configurable key to lock it in place
 - Manual slot locks persist across save/reload
 - Server-side sort cooldown, re-entrancy lock, and item recovery
@@ -24,7 +25,7 @@ Current multiplayer core build:
 Quick Draw is intentionally removed because vanilla quick equip/swap already covers that use case.
 ]]
 author = "Dogan Bilici"
-version = "0.3.0-slot-locks"
+version = "0.4.0-bag-sort"
 api_version = 10
 priority = 100
 
@@ -141,6 +142,27 @@ configuration_options = {
             {description = "V", data = "KEY_V"},
         },
         default = "KEY_F5",
+    },
+    {
+        name = "bag_sort_enabled",
+        label = "Equipped Bag Sort",
+        hover = "Sort the equipped backpack or bag internally without moving items to or from the main inventory.",
+        options = boolean_options,
+        default = true,
+    },
+    {
+        name = "bag_sort_key",
+        label = "Bag Sort Hotkey",
+        hover = "Press this key to sort the equipped bag. Use a different key from the main inventory sort.",
+        options = {
+            {description = "F6", data = "KEY_F6"},
+            {description = "F7", data = "KEY_F7"},
+            {description = "F8", data = "KEY_F8"},
+            {description = "F9", data = "KEY_F9"},
+            {description = "B", data = "KEY_B"},
+            {description = "G", data = "KEY_G"},
+        },
+        default = "KEY_F6",
     },
     {
         name = "slot_lock_enabled",

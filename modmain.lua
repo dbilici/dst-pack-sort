@@ -40,9 +40,11 @@ local CONFIG = {
     slot_armor = GetModConfigData("slot_armor") ~= false,
     slot_accessory = GetModConfigData("slot_accessory") ~= false,
     sort_enabled = GetModConfigData("sort_enabled") ~= false,
+    bag_sort_enabled = GetModConfigData("bag_sort_enabled") ~= false,
     sort_mode = GetModConfigData("sort_mode") or "category",
     sort_merge_stacks = GetModConfigData("sort_merge_stacks") ~= false,
     sort_key = GetModConfigData("sort_key") or "KEY_F5",
+    bag_sort_key = GetModConfigData("bag_sort_key") or "KEY_F6",
     slot_lock_enabled = GetModConfigData("slot_lock_enabled") ~= false,
     slot_lock_key = GetModConfigData("slot_lock_key") or "KEY_L",
     debug_mode = GetModConfigData("debug_mode") or "off",
@@ -52,7 +54,7 @@ local MAX_ITEM_SLOTS = CONFIG.inventory_size == 24 and 24 or 15
 local USE_EXPANDED_INVENTORY = MAX_ITEM_SLOTS > 15
 local USE_2X12_LAYOUT = USE_EXPANDED_INVENTORY and CONFIG.inventory_layout == "2x12"
 local UI_SCALE = CONFIG.ui_scale or 0.85
-local CORE_PROTOCOL_VERSION = 2
+local CORE_PROTOCOL_VERSION = 3
 local CORE_RPC_NAMESPACE = "BetterInventoryCore"
 
 --------------------------------------------------------------------------
@@ -1009,6 +1011,7 @@ end
 
 local SORT_RPC_NAMESPACE = "BetterInventory"
 local SORT_RPC_NAME = "SortInventory"
+local BAG_SORT_RPC_NAME = "SortBag"
 local SORT_RPC_COOLDOWN = 0.75
 local SORT_REQUEST_STATE = GLOBAL.setmetatable({}, { __mode = "k" })
 
@@ -1267,6 +1270,35 @@ local function RestoreDetachedSortItems(inventory, records)
     end
 end
 
+local function CanContainerTakeItemInSlot(container, item, slot)
+    return container.CanTakeItemInSlot == nil or container:CanTakeItemInSlot(item, slot)
+end
+
+local function RestoreDetachedBagSortItems(player, container, records)
+    local inventory = player ~= nil and player.components ~= nil and player.components.inventory or nil
+
+    for _, record in ipairs(records) do
+        local item = record.item
+        if item ~= nil and item:IsValid() and not IsItemAttachedToInventory(item) then
+            local preferred_slot = container:GetItemInSlot(record.slot) == nil
+                and CanContainerTakeItemInSlot(container, item, record.slot)
+                and record.slot or nil
+
+            container:GiveItem(item, preferred_slot, nil, false)
+            if item:IsValid() and not IsItemAttachedToInventory(item) then
+                container:GiveItem(item, nil, nil, false)
+            end
+
+            -- Error recovery may cross back into the main inventory, but only
+            -- as a last resort to guarantee that an ownerless item is not lost.
+            if item:IsValid() and not IsItemAttachedToInventory(item) and inventory ~= nil then
+                DebugWarn("Bag sort recovered " .. tostring(item.prefab) .. " into main inventory")
+                inventory:GiveItem(item)
+            end
+        end
+    end
+end
+
 local function SortInventoryForPlayer(player)
     if not CONFIG.sort_enabled then
         return false
@@ -1354,38 +1386,144 @@ local function SortInventoryForPlayer(player)
     return true
 end
 
-if CONFIG.sort_enabled then
-    AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_RPC_NAME, function(player)
-        if player == nil or not player:IsValid() then
-            return
+local function SortBagForPlayer(player)
+    if not CONFIG.bag_sort_enabled then
+        return false
+    end
+
+    if player == nil or not player:IsValid() or player.components == nil
+        or player.components.inventory == nil then
+        return false
+    end
+
+    local inventory = player.components.inventory
+    if inventory.isloading or inventory:GetActiveItem() ~= nil then
+        DebugLog("Rejected bag sort while inventory is loading or holding an active item")
+        return false
+    end
+
+    local container = inventory:GetOverflowContainer()
+    if container == nil or container.inst == nil or not container.inst:IsValid()
+        or container.readonlycontainer or container.RemoveItemBySlot == nil
+        or container.GiveItem == nil then
+        DebugLog("Rejected bag sort: no writable equipped bag")
+        return false
+    end
+
+    local num_slots = container.GetNumSlots ~= nil and container:GetNumSlots() or 0
+    if num_slots <= 0 then
+        return false
+    end
+
+    local items = {}
+    local occupied_slots = {}
+    local removed_records = {}
+
+    local ok, err = GLOBAL.pcall(function()
+        for slot = 1, num_slots do
+            local item = container:GetItemInSlot(slot)
+            if item ~= nil then
+                local inventoryitem = item.components ~= nil and item.components.inventoryitem or nil
+                if inventoryitem ~= nil and inventoryitem.islockedinslot then
+                    occupied_slots[slot] = true
+                else
+                    local removed = container:RemoveItemBySlot(slot)
+                    if removed ~= nil then
+                        table.insert(items, removed)
+                        table.insert(removed_records, { item = removed, slot = slot })
+                    else
+                        occupied_slots[slot] = true
+                        DebugWarn("Bag sort kept item in slot " .. tostring(slot) .. ": removal failed")
+                    end
+                end
+            end
         end
 
-        local now = GLOBAL.GetTime()
-        local state = SORT_REQUEST_STATE[player]
-        if state == nil then
-            state = { busy = false, last_request = -SORT_RPC_COOLDOWN }
-            SORT_REQUEST_STATE[player] = state
-        end
+        items = MergePartialStacks(items)
+        items = SortItemsForInventory(items)
 
-        if state.busy or now - state.last_request < SORT_RPC_COOLDOWN then
-            DebugLog("Rejected duplicate sort RPC for " .. tostring(player.userid or player.GUID))
-            return
-        end
+        for _, item in ipairs(items) do
+            if item ~= nil and item:IsValid() then
+                local target_slot = nil
+                for slot = 1, num_slots do
+                    if not occupied_slots[slot] and container:GetItemInSlot(slot) == nil
+                        and CanContainerTakeItemInSlot(container, item, slot) then
+                        target_slot = slot
+                        break
+                    end
+                end
 
-        if player.sg ~= nil and player.sg:HasStateTag("busy") then
-            DebugLog("Rejected sort RPC while player is busy")
-            return
-        end
-
-        state.last_request = now
-        state.busy = true
-        local ok, err = GLOBAL.pcall(SortInventoryForPlayer, player)
-        state.busy = false
-
-        if not ok then
-            DebugWarn("Unhandled sort RPC error: " .. tostring(err))
+                if target_slot == nil then
+                    DebugWarn("Bag sort found no valid slot for " .. tostring(item.prefab))
+                else
+                    local given = container:GiveItem(item, target_slot, nil, false)
+                    if not given and item:IsValid() and not IsItemAttachedToInventory(item) then
+                        DebugWarn("Bag sort could not place " .. tostring(item.prefab)
+                            .. " in slot " .. tostring(target_slot))
+                    end
+                end
+            end
         end
     end)
+
+    RestoreDetachedBagSortItems(player, container, removed_records)
+
+    if not ok then
+        DebugWarn("Bag sort transaction recovered after error: " .. tostring(err))
+        return false
+    end
+
+    DebugLog("Sorted equipped bag for " .. tostring(player.name or player.prefab or "player")
+        .. " using mode=" .. tostring(CONFIG.sort_mode)
+        .. ", merge_stacks=" .. tostring(CONFIG.sort_merge_stacks))
+    return true
+end
+
+local function HandleSortRPC(player, sort_function, label)
+    if player == nil or not player:IsValid() then
+        return
+    end
+
+    local now = GLOBAL.GetTime()
+    local state = SORT_REQUEST_STATE[player]
+    if state == nil then
+        state = { busy = false, last_request = -SORT_RPC_COOLDOWN }
+        SORT_REQUEST_STATE[player] = state
+    end
+
+    if state.busy or now - state.last_request < SORT_RPC_COOLDOWN then
+        DebugLog("Rejected duplicate " .. tostring(label) .. " RPC for "
+            .. tostring(player.userid or player.GUID))
+        return
+    end
+
+    if player.sg ~= nil and player.sg:HasStateTag("busy") then
+        DebugLog("Rejected " .. tostring(label) .. " RPC while player is busy")
+        return
+    end
+
+    state.last_request = now
+    state.busy = true
+    local ok, err = GLOBAL.pcall(sort_function, player)
+    state.busy = false
+
+    if not ok then
+        DebugWarn("Unhandled " .. tostring(label) .. " RPC error: " .. tostring(err))
+    end
+end
+
+if CONFIG.sort_enabled or CONFIG.bag_sort_enabled then
+    if CONFIG.sort_enabled then
+        AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_RPC_NAME, function(player)
+            HandleSortRPC(player, SortInventoryForPlayer, "inventory sort")
+        end)
+    end
+
+    if CONFIG.bag_sort_enabled then
+        AddModRPCHandler(SORT_RPC_NAMESPACE, BAG_SORT_RPC_NAME, function(player)
+            HandleSortRPC(player, SortBagForPlayer, "bag sort")
+        end)
+    end
 
     if not (TheNet ~= nil and TheNet.IsDedicated ~= nil and TheNet:IsDedicated()) then
         local KEY_MAP = {
@@ -1393,12 +1531,16 @@ if CONFIG.sort_enabled then
             KEY_F6 = GLOBAL.KEY_F6,
             KEY_F7 = GLOBAL.KEY_F7,
             KEY_F8 = GLOBAL.KEY_F8,
+            KEY_F9 = GLOBAL.KEY_F9,
+            KEY_B = GLOBAL.KEY_B,
+            KEY_G = GLOBAL.KEY_G,
             KEY_R = GLOBAL.KEY_R,
             KEY_C = GLOBAL.KEY_C,
             KEY_V = GLOBAL.KEY_V,
         }
 
         local sort_key = KEY_MAP[CONFIG.sort_key] or GLOBAL.KEY_F5
+        local bag_sort_key = KEY_MAP[CONFIG.bag_sort_key] or GLOBAL.KEY_F6
 
         local function CanUseSortHotkey()
             if GLOBAL.ThePlayer == nil or GLOBAL.ThePlayer.HUD == nil then
@@ -1416,22 +1558,41 @@ if CONFIG.sort_enabled then
             return true
         end
 
-        if sort_key ~= nil and not GLOBAL.rawget(GLOBAL, "BETTER_INVENTORY_SORT_HOTKEY_ADDED") then
+        local function SendSortRPC(rpc_name)
+            if not CanUseSortHotkey() then
+                return
+            end
+
+            local rpc_namespace = GLOBAL.MOD_RPC ~= nil and GLOBAL.MOD_RPC[SORT_RPC_NAMESPACE] or nil
+            local rpc = rpc_namespace ~= nil and rpc_namespace[rpc_name] or nil
+            if rpc ~= nil then
+                GLOBAL.SendModRPCToServer(rpc)
+            end
+        end
+
+        if CONFIG.sort_enabled and sort_key ~= nil
+            and not GLOBAL.rawget(GLOBAL, "BETTER_INVENTORY_SORT_HOTKEY_ADDED") then
             GLOBAL.rawset(GLOBAL, "BETTER_INVENTORY_SORT_HOTKEY_ADDED", true)
 
             GLOBAL.TheInput:AddKeyDownHandler(sort_key, function()
-                if not CanUseSortHotkey() then
-                    return
-                end
-
-                local rpc_namespace = GLOBAL.MOD_RPC ~= nil and GLOBAL.MOD_RPC[SORT_RPC_NAMESPACE] or nil
-                local rpc = rpc_namespace ~= nil and rpc_namespace[SORT_RPC_NAME] or nil
-                if rpc ~= nil then
-                    GLOBAL.SendModRPCToServer(rpc)
-                end
+                SendSortRPC(SORT_RPC_NAME)
             end)
 
             DebugLog("Inventory sort hotkey registered: " .. tostring(CONFIG.sort_key))
+        end
+
+        if CONFIG.bag_sort_enabled and bag_sort_key ~= nil then
+            if CONFIG.sort_enabled and bag_sort_key == sort_key then
+                DebugWarn("Bag sort hotkey matches inventory sort hotkey; bag hotkey disabled")
+            elseif not GLOBAL.rawget(GLOBAL, "BETTER_INVENTORY_BAG_SORT_HOTKEY_ADDED") then
+                GLOBAL.rawset(GLOBAL, "BETTER_INVENTORY_BAG_SORT_HOTKEY_ADDED", true)
+
+                GLOBAL.TheInput:AddKeyDownHandler(bag_sort_key, function()
+                    SendSortRPC(BAG_SORT_RPC_NAME)
+                end)
+
+                DebugLog("Bag sort hotkey registered: " .. tostring(CONFIG.bag_sort_key))
+            end
         end
     end
 end
@@ -1444,6 +1605,8 @@ DebugLog("Loaded multiplayer core. Protocol=" .. tostring(CORE_PROTOCOL_VERSION)
     .. ", armor=" .. tostring(CONFIG.slot_armor)
     .. ", accessory=" .. tostring(CONFIG.slot_accessory)
     .. ", sort=" .. tostring(CONFIG.sort_enabled)
+    .. ", bag_sort=" .. tostring(CONFIG.bag_sort_enabled)
     .. ", sort_mode=" .. tostring(CONFIG.sort_mode)
+    .. ", bag_sort_key=" .. tostring(CONFIG.bag_sort_key)
     .. ", slot_locks=" .. tostring(CONFIG.slot_lock_enabled)
     .. ", lock_key=" .. tostring(CONFIG.slot_lock_key))

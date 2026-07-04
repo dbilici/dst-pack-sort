@@ -16,6 +16,19 @@ Manual slot-lock checks:
 4. Save/reload and verify both occupied and empty slot locks are restored.
 5. Confirm typing `L` in chat does not toggle a hovered slot.
 
+Equipped bag-sort checks:
+
+1. Equip a backpack containing mixed item categories and partial stacks, then
+   press `F6`; verify only the bag contents are sorted and merged. Repeat while
+   the bag UI is closed; server-side sorting should still work.
+2. Confirm `F5` still sorts only the main inventory.
+3. Hold an active cursor item and press `F6`; verify neither container changes.
+4. Press `F6` with no equipped bag; verify there is no error or dropped item.
+5. Test a restricted bag such as Seed Pack-It and verify every item remains in
+   a valid bag slot.
+6. Set both sort hotkeys to the same key and verify the bag hotkey is disabled
+   with a warning instead of dispatching both operations.
+
 Test matrix:
 
 1. Host a world, fill slots 16-24, and connect a second client after the items
