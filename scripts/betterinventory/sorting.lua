@@ -23,6 +23,7 @@ function Sorting.Setup(context)
     local SORT_ORDER_APPLY_RPC_NAME = "ApplySortOrder"
     local SORT_ORDER_STATE_RPC_NAME = "SortOrderState"
     local SORT_RPC_COOLDOWN = 0.75
+    local SORT_ORDER_RPC_COOLDOWN = 0.25
     local SORT_REQUEST_STATE = GLOBAL.setmetatable({}, { __mode = "k" })
     local SORT_ORDER_REQUEST_STATE = GLOBAL.setmetatable({}, { __mode = "k" })
     local ACTIVE_SORT_ORDER_SCREEN = nil
@@ -85,7 +86,7 @@ function Sorting.Setup(context)
         { filter = "STRUCTURES", category = "material" },
         { filter = "CONTAINERS", category = "bag" },
         { filter = "COOKING", category = "food" },
-        { filter = "GARDENING", category = "food" },
+        { filter = "GARDENING", category = "tool" },
         { filter = "FISHING", category = "tool" },
         { filter = "SEAFARING", category = "tool" },
         { filter = "RIDING", category = "accessory" },
@@ -204,7 +205,8 @@ function Sorting.Setup(context)
         end
         local priorities = category_priorities or CONFIGURED_CATEGORY_SORT_ORDER
         local configured_priority = GLOBAL.tonumber(priorities[category])
-        if configured_priority == nil or configured_priority < 1 or configured_priority > 13
+        if configured_priority == nil or configured_priority < 1
+            or configured_priority > #Categories.ORDER
             or configured_priority % 1 ~= 0 then
             return DEFAULT_CATEGORY_SORT_ORDER[category]
         end
@@ -330,50 +332,49 @@ function Sorting.Setup(context)
             return items
         end
 
-        -- Lua's table.sort is not stable. Remember the current order so otherwise
-        -- equal items (for example torches with different durability) do not swap
-        -- positions unpredictably between repeated sorts.
-        local original_order = {}
+        -- Precompute one immutable key per item. Comparing cached keys keeps
+        -- the comparator a strict weak order: comparing live values could
+        -- break transitivity when condition-tracked and condition-less items
+        -- mix, and table.sort may abort on an inconsistent comparator. Items
+        -- without a condition component count as pristine. The original index
+        -- makes the sort stable, so equal items keep their relative order
+        -- between repeated sorts.
+        local sort_keys = {}
         for index, item in ipairs(items) do
-            original_order[item] = index
+            local category = GetInventorySortCategoryName(item)
+            local stackable = item.components ~= nil and item.components.stackable or nil
+            sort_keys[item] = {
+                priority = GetInventorySortCategory(item, category_priorities),
+                -- Duplicate custom priorities are valid. Resolve them with the
+                -- default category order so configuration mistakes remain stable.
+                default_priority = DEFAULT_CATEGORY_SORT_ORDER[category] or (#Categories.ORDER + 1),
+                name = GetItemSortName(item),
+                stack_size = stackable ~= nil and stackable.StackSize ~= nil
+                    and stackable:StackSize() or 1,
+                condition = GetItemConditionPercent(item) or 1,
+                original_order = index,
+            }
         end
 
         table.sort(items, function(a, b)
-            local category_a = GetInventorySortCategoryName(a)
-            local category_b = GetInventorySortCategoryName(b)
-            local ca = GetInventorySortCategory(a, category_priorities)
-            local cb = GetInventorySortCategory(b, category_priorities)
-            if ca ~= cb then
-                return ca < cb
+            local ka = sort_keys[a]
+            local kb = sort_keys[b]
+            if ka.priority ~= kb.priority then
+                return ka.priority < kb.priority
             end
-
-            -- Duplicate custom priorities are valid. Resolve them with the old
-            -- default category order so configuration mistakes remain stable.
-            local default_ca = DEFAULT_CATEGORY_SORT_ORDER[category_a]
-            local default_cb = DEFAULT_CATEGORY_SORT_ORDER[category_b]
-            if default_ca ~= default_cb then
-                return default_ca < default_cb
+            if ka.default_priority ~= kb.default_priority then
+                return ka.default_priority < kb.default_priority
             end
-
-            local pa = GetItemSortName(a)
-            local pb = GetItemSortName(b)
-            if pa ~= pb then
-                return pa < pb
+            if ka.name ~= kb.name then
+                return ka.name < kb.name
             end
-
-            local sa = a.components ~= nil and a.components.stackable ~= nil and a.components.stackable.StackSize ~= nil and a.components.stackable:StackSize() or 1
-            local sb = b.components ~= nil and b.components.stackable ~= nil and b.components.stackable.StackSize ~= nil and b.components.stackable:StackSize() or 1
-            if sa ~= sb then
-                return sa > sb
+            if ka.stack_size ~= kb.stack_size then
+                return ka.stack_size > kb.stack_size
             end
-
-            local condition_a = GetItemConditionPercent(a)
-            local condition_b = GetItemConditionPercent(b)
-            if condition_a ~= nil and condition_b ~= nil and condition_a ~= condition_b then
-                return condition_a > condition_b
+            if ka.condition ~= kb.condition then
+                return ka.condition > kb.condition
             end
-
-            return original_order[a] < original_order[b]
+            return ka.original_order < kb.original_order
         end)
 
         return items
@@ -719,11 +720,15 @@ function Sorting.Setup(context)
         local now = GLOBAL.GetTime()
         local state = SORT_REQUEST_STATE[player]
         if state == nil then
-            state = { busy = false, last_request = -SORT_RPC_COOLDOWN }
+            state = { busy = false, last_request = {} }
             SORT_REQUEST_STATE[player] = state
         end
 
-        if state.busy or now - state.last_request < SORT_RPC_COOLDOWN then
+        -- busy guards re-entrancy across every inventory operation, while the
+        -- spam cooldown is tracked per operation so that for example a sort
+        -- followed by a quick stack is not silently dropped.
+        local last_request = state.last_request[label] or -SORT_RPC_COOLDOWN
+        if state.busy or now - last_request < SORT_RPC_COOLDOWN then
             DebugLog("Rejected duplicate " .. tostring(label) .. " RPC for "
                 .. tostring(player.userid or player.GUID))
             return
@@ -734,7 +739,7 @@ function Sorting.Setup(context)
             return
         end
 
-        state.last_request = now
+        state.last_request[label] = now
         state.busy = true
         local ok, result = GLOBAL.pcall(operation, player)
         state.busy = false
@@ -787,18 +792,27 @@ function Sorting.Setup(context)
         GLOBAL.SendModRPCToClient(rpc, player.userid, current, defaults)
     end
 
-    local function CanUpdateSortOrder(player)
+    -- Request (panel open) and Apply are rate limited independently: a shared
+    -- timestamp could silently drop an Apply arriving right after the
+    -- panel-open request, losing the player's edits with no feedback.
+    local function CanUpdateSortOrder(player, action)
         if player == nil or not player:IsValid() or player.components == nil
             or player.components.betterinventory_sortprefs == nil then
             return false
         end
 
+        local state = SORT_ORDER_REQUEST_STATE[player]
+        if state == nil then
+            state = {}
+            SORT_ORDER_REQUEST_STATE[player] = state
+        end
+
         local now = GLOBAL.GetTime()
-        local last_request = SORT_ORDER_REQUEST_STATE[player] or -0.25
-        if now - last_request < 0.25 then
+        local last_request = state[action] or -SORT_ORDER_RPC_COOLDOWN
+        if now - last_request < SORT_ORDER_RPC_COOLDOWN then
             return false
         end
-        SORT_ORDER_REQUEST_STATE[player] = now
+        state[action] = now
         return true
     end
 
@@ -844,14 +858,14 @@ function Sorting.Setup(context)
         end
 
         AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_ORDER_REQUEST_RPC_NAME, function(player)
-            if CanUpdateSortOrder(player) then
+            if CanUpdateSortOrder(player, "request") then
                 SendSortOrderState(player)
             end
         end)
 
         AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_ORDER_APPLY_RPC_NAME,
             function(player, serialized)
-                if not CanUpdateSortOrder(player) then
+                if not CanUpdateSortOrder(player, "apply") then
                     return
                 end
 

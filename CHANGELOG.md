@@ -16,6 +16,21 @@
   the primary category source, with deterministic precedence for overlapping
   filters and fallback rules for non-craftable loot/resources.
 - Bumped the multiplayer core protocol to 5 for sort-preference RPCs.
+- Sorting now precomputes per-item sort keys. This keeps the comparator a
+  valid strict order when condition-tracked and condition-less copies of the
+  same item mix (previously the sort could abort), treats a missing condition
+  as pristine, and stops re-classifying items on every comparison.
+- Sort, bag sort, and Quick Stack cooldowns are tracked per operation, so for
+  example sorting and then quick stacking within the cooldown window no longer
+  silently drops the second request. Re-entrancy is still guarded across all
+  operations.
+- The sort-order panel's open request and Apply All are rate limited
+  independently, so a fast Apply can no longer be silently dropped by the
+  preceding panel-open request.
+- The GARDENING crafting filter now maps to Tools instead of Food, so watering
+  cans, hoes, and other farming gear sort with tools.
+- Category priority validation derives its bounds from the category list
+  instead of a hardcoded count.
 
 ## v0.5.0 - Stable (2026-07-05)
 
