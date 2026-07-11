@@ -73,10 +73,11 @@ prefab fallbacks. Filter reference:
 
 ## Development
 
-Run the pure sorting and Quick Stack regression suite with:
+Run the pure sorting and Quick Stack regression suite with any Lua 5.1+
+interpreter:
 
 ```sh
-lua tests/sorting_spec.lua
+lua tests/sorting_spec.lua   # or: luajit tests/sorting_spec.lua
 ```
 
 The full manual matrix and expected diagnostics are documented in

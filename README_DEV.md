@@ -1,3 +1,18 @@
+# v0.6.0-dev maintenance checks
+
+1. Sort an inventory holding both condition-tracked and condition-less copies
+   of the same prefab; the sort must complete and condition-less copies must
+   sort as if pristine.
+2. Press the main sort key and immediately the bag sort and Quick Stack keys;
+   each operation must run once. Cooldowns are per operation, and spamming a
+   single key must still be rejected within its cooldown.
+3. Open the sort panel and press Apply All immediately; the new order must
+   persist (the panel-open request no longer rate limits Apply).
+4. Verify watering cans and garden hoes sort with Tools rather than Food, and
+   that fertilizers in the GARDENING filter land in an acceptable slot group.
+
+---
+
 # v0.5.0 validation
 
 This stable release freezes feature work and validates regression and

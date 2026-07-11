@@ -256,6 +256,17 @@ do
 end
 
 do
+    local garden_api = NewSortingApi("category", nil, {
+        GARDENING = { default_sort_values = { wateringcan = 1 } },
+    }, {
+        wateringcan = { product = "wateringcan" },
+    })
+    local item = NewItem("wateringcan")
+    assert(garden_api.GetInventorySortCategoryName(item) == "tool",
+        "gardening equipment should be classified as tools, not food")
+end
+
+do
     local log = NewItem("log", {
         components = { edible = {}, fuel = {} },
     })
@@ -377,6 +388,23 @@ do
 
     category_api.SortItemsForInventory(items)
     AssertOrder(items, { full_a, full_b, low }, "repeated stable sort")
+end
+
+do
+    -- Mixing condition-tracked and condition-less copies of the same prefab
+    -- previously broke comparator transitivity; condition-less items must sort
+    -- as pristine and the sort must complete without an invalid-order error.
+    local low = NewItem("torch", {
+        components = { fueled = NewConditionComponent(0.25) },
+    })
+    local plain = NewItem("torch")
+    local high = NewItem("torch", {
+        components = { fueled = NewConditionComponent(0.9) },
+    })
+    local items = { low, plain, high }
+
+    category_api.SortItemsForInventory(items)
+    AssertOrder(items, { plain, high, low }, "missing condition sorts as pristine")
 end
 
 do
