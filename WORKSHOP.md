@@ -1,11 +1,11 @@
-# Better Inventory — Steam Workshop Copy
+# Pack & Sort — Steam Workshop Copy
 
 This file contains ready-to-paste copy and the release checklist for `v0.5.0`.
 It is not loaded by the mod.
 
 ## Title
 
-Better Inventory
+Pack & Sort
 
 ## Short description
 
@@ -15,9 +15,9 @@ movement.
 
 ## Workshop description
 
-[h1]Better Inventory[/h1]
+[h1]Pack & Sort[/h1]
 
-Better Inventory expands and organizes the Don't Starve Together inventory
+Pack & Sort expands and organizes the Don't Starve Together inventory
 without moving item authority away from the server.
 
 [h2]Features[/h2]
@@ -72,7 +72,7 @@ travel.
 
 [h2]Compatibility[/h2]
 
-Better Inventory targets Don't Starve Together API version 10. Existing
+Pack & Sort targets Don't Starve Together API version 10. Existing
 v0.2.6+ saves remain compatible. Mods that replace the inventory HUD, change
 the base inventory size, or redefine equipment slots may conflict.
 
@@ -82,7 +82,7 @@ Please include the host and client logs, enabled mod list, world type, and exact
 steps needed to reproduce the problem.
 
 Source and issue tracker:
-https://github.com/dbilici/better_inventory_dst
+https://github.com/dbilici/dst-pack-sort
 
 ## Change notes
 
@@ -134,7 +134,7 @@ Do not use debug chat or developer overlays in the Workshop screenshots.
 ## Final-release checklist
 
 - [x] Complete the multiplayer late-join, reconnect, death/revive, and caves matrix.
-- [x] Confirm no `[Better Inventory][WARN]` replication-contract messages.
+- [x] Confirm no `[Pack & Sort][WARN]` replication-contract messages.
 - [x] Update version references from `0.5.0-rc1` to `0.5.0`.
 - [ ] Add final change notes and tag `v0.5.0`.
 - [x] Keep pre-1.0 Workshop visibility restricted to Friends Only.

@@ -1,4 +1,4 @@
-name = "Better Inventory"
+name = "Pack & Sort"
 description = [[
 Expanded inventory + utility equipment slots + inventory sort for Don't Starve Together.
 
