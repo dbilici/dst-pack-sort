@@ -91,7 +91,7 @@ Test matrix:
 5. Attempt sorting with an active cursor item and with a locked/cursed slot item.
 6. Disconnect and reconnect the second client, then repeat inventory and bag reads.
 7. Save/reload, die/revive, and travel Forest -> Caves -> Forest.
-8. Search logs for `[Better Inventory][WARN]`; any replication-contract warning is
+8. Search logs for `[Pack & Sort][WARN]`; any replication-contract warning is
    a release blocker.
 
 Expected debug success lines include `replication contract OK`, protocol `5`, and
@@ -111,7 +111,7 @@ This pass establishes a safer baseline before adding features:
 
 Test order:
 
-1. Start a world with only Better Inventory enabled.
+1. Start a world with only Pack & Sort enabled.
 2. Fill and manually rearrange slots 16-24, then save/reload the world.
 3. Equip a backpack in the Bag slot; open it, pick up items into it, craft from it,
    and unequip it while it contains items.
@@ -139,7 +139,7 @@ Test order:
 
 ---
 
-# Better Inventory - v0.2.4 UI Safe Layout
+# Pack & Sort - v0.2.4 UI Safe Layout
 
 This build fixes the v0.2.3 UI overlap by using a conservative layout:
 
@@ -161,7 +161,7 @@ Next UI pass should create a real 2 x 12 background asset instead of trying to r
 
 ---
 
-# Better Inventory - v0.2.3 UI Hotfix
+# Pack & Sort - v0.2.3 UI Hotfix
 
 ## What changed
 

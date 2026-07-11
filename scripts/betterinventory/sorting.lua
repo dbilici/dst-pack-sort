@@ -2,7 +2,7 @@ local Sorting = {}
 local Categories = require("betterinventory/categories")
 
 function Sorting.Setup(context)
-    assert(context ~= nil, "Better Inventory sorting context is required")
+    assert(context ~= nil, "Pack & Sort sorting context is required")
 
     local GLOBAL = assert(context.GLOBAL, "GLOBAL is required")
     local CONFIG = assert(context.config, "sorting config is required")

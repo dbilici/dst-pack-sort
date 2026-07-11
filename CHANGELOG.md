@@ -22,7 +22,7 @@
 - Promoted the release candidate after successful three-player late-join,
   reconnect, death/revive, bag operation, and Forest/Caves validation.
 - Verified the subscribed Steam Workshop build without observed errors or
-  Better Inventory replication warnings.
+  Pack & Sort replication warnings.
 
 - Added server-authoritative Quick Stack to Bag on a separate configurable
   hotkey (default `F7`). It only fills compatible stacks already present in the
@@ -51,7 +51,7 @@
 
 ## v0.2.7 - Multiplayer Core
 
-- Replaced generic `extrabody1/2/3` identifiers with namespaced Better Inventory
+- Replaced generic `extrabody1/2/3` identifiers with namespaced Pack & Sort
   slot IDs to avoid collisions with other equipment-slot mods.
 - Added replication contract checks for main inventory netvars, equipment netvars,
   player replicas, and late-attached classified entities.

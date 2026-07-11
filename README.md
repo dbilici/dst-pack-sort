@@ -1,6 +1,6 @@
-# Better Inventory DST
+# Pack & Sort
 
-Better Inventory is an all-clients Don't Starve Together mod that expands and
+Pack & Sort is an all-clients Don't Starve Together mod that expands and
 organizes the inventory while keeping item movement server-authoritative.
 
 ## Release status
@@ -46,7 +46,7 @@ no-op requests remain silent.
 ## Installation and compatibility
 
 1. Place the mod folder under the Don't Starve Together `mods` directory.
-2. Enable Better Inventory in the world's Mods settings.
+2. Enable Pack & Sort in the world's Mods settings.
 3. Install and enable the same build for every joining client.
 
 The mod targets Don't Starve Together API version 10. Existing v0.2.6+ saves

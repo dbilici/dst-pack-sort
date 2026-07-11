@@ -1,4 +1,4 @@
--- Better Inventory
+-- Pack & Sort
 -- Post-v0.5.0 development.
 --
 -- Main goals:
@@ -86,7 +86,7 @@ local function DebugLog(message)
         return
     end
 
-    local line = "[Better Inventory] " .. tostring(message)
+    local line = "[Pack & Sort] " .. tostring(message)
     print(line)
 
     if CONFIG.debug_mode == "chatlog" and GLOBAL.TheWorld ~= nil and GLOBAL.TheWorld.ismastersim then
@@ -97,7 +97,7 @@ local function DebugLog(message)
 end
 
 local function DebugWarn(message)
-    print("[Better Inventory][WARN] " .. tostring(message))
+    print("[Pack & Sort][WARN] " .. tostring(message))
 end
 
 --------------------------------------------------------------------------
@@ -138,7 +138,7 @@ for _, key in ipairs({"BAG", "ARMOR", "ACCESSORY"}) do
     if def.enabled then
         local existing = EQUIPSLOTS[def.global_key]
         if existing ~= nil and existing ~= def.eslot then
-            GLOBAL.error("Better Inventory: equip slot collision for " .. def.global_key)
+            GLOBAL.error("Pack & Sort: equip slot collision for " .. def.global_key)
         end
         EQUIPSLOTS[def.global_key] = def.eslot
         table.insert(ENABLED_EXTRA_SLOTS, def)
@@ -233,7 +233,7 @@ if USE_EXPANDED_INVENTORY then
             return math.max(base, MAX_ITEM_SLOTS)
         end
     else
-        GLOBAL.error("Better Inventory: GetMaxItemSlots is unavailable")
+        GLOBAL.error("Pack & Sort: GetMaxItemSlots is unavailable")
     end
 end
 
