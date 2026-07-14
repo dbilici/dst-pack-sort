@@ -13,6 +13,8 @@
 5. Sort an already sorted inventory and then an intentionally shuffled
    inventory; only the changed sort should play the local inventory-move
    feedback sound. Repeat once for equipped bag sort.
+6. Toggle a slot lock and press Apply All in the sort-order panel; each
+   successful action should play one local feedback sound for that player only.
 
 ---
 

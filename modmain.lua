@@ -370,6 +370,7 @@ local SLOT_LOCK_RPC_NAMESPACE = "BetterInventorySlotLocks"
 local SLOT_LOCK_TOGGLE_RPC = "Toggle"
 local SLOT_LOCK_SYNC_RPC = "Sync"
 local SLOT_LOCK_STATE_RPC = "State"
+local SLOT_LOCK_FEEDBACK_RPC = "Feedback"
 local SLOT_LOCK_REQUEST_COOLDOWN = 0.10
 local SLOT_LOCK_REQUEST_STATE = GLOBAL.setmetatable({}, { __mode = "k" })
 local CLIENT_LOCKED_SLOTS = {}
@@ -443,6 +444,15 @@ local function SendSlotLockState(player)
     GLOBAL.SendModRPCToClient(rpc, player.userid, component:GetSerialized())
 end
 
+local function SendSlotLockFeedback(player, locked)
+    if player == nil or player.userid == nil then
+        return
+    end
+
+    local rpc = GLOBAL.GetClientModRPC(SLOT_LOCK_RPC_NAMESPACE, SLOT_LOCK_FEEDBACK_RPC)
+    GLOBAL.SendModRPCToClient(rpc, player.userid, locked and 1 or 0)
+end
+
 if CONFIG.slot_lock_enabled then
     AddPlayerPostInit(function(inst)
         if GLOBAL.TheWorld ~= nil and GLOBAL.TheWorld.ismastersim
@@ -454,6 +464,13 @@ if CONFIG.slot_lock_enabled then
     AddClientModRPCHandler(SLOT_LOCK_RPC_NAMESPACE, SLOT_LOCK_STATE_RPC, function(serialized)
         CLIENT_LOCKED_SLOTS = DecodeLockedSlots(serialized)
         RefreshSlotLockVisuals()
+    end)
+
+    AddClientModRPCHandler(SLOT_LOCK_RPC_NAMESPACE, SLOT_LOCK_FEEDBACK_RPC, function()
+        local sound = GLOBAL.TheFrontEnd ~= nil and GLOBAL.TheFrontEnd:GetSound() or nil
+        if sound ~= nil then
+            sound:PlaySound("dontstarve/HUD/click_move")
+        end
     end)
 
     AddModRPCHandler(SLOT_LOCK_RPC_NAMESPACE, SLOT_LOCK_SYNC_RPC, function(player)
@@ -487,6 +504,7 @@ if CONFIG.slot_lock_enabled then
         DebugLog("Slot " .. tostring(slot) .. (locked and " locked" or " unlocked")
             .. " for " .. tostring(player.userid or player.GUID))
         SendSlotLockState(player)
+        SendSlotLockFeedback(player, locked)
     end)
 
     if not (TheNet ~= nil and TheNet.IsDedicated ~= nil and TheNet:IsDedicated()) then

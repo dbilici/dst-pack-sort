@@ -932,6 +932,7 @@ function Sorting.Setup(context)
                         return
                     end
 
+                    SendSortFeedbackResult(player, true)
                     DebugLog("Updated sort order for " .. tostring(player.userid or player.GUID))
                 end)
         end

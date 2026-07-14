@@ -323,6 +323,46 @@ do
         "sort-order apply RPC should register when inventory sort is enabled")
 end
 
+do
+    local sort_api = NewInstalledSortingApi({
+        sort_enabled = true,
+        bag_sort_enabled = false,
+        quick_stack_enabled = false,
+        sort_mode = "category",
+        sort_merge_stacks = true,
+        sort_category_priorities = Categories.DEFAULT_PRIORITIES,
+    })
+    local preset_orders = {}
+    for _, key in ipairs(Categories.PRESET_KEYS) do
+        preset_orders[key] = Categories.GetBasePresetOrder(key, Categories.DEFAULT_PRIORITIES)
+    end
+    local serialized = Categories.SerializePresetState("default", preset_orders)
+    local apply_called = false
+    local player = {
+        userid = "test_player",
+        components = {
+            betterinventory_sortprefs = {
+                SetState = function(_, active_preset, orders)
+                    apply_called = active_preset == "default" and orders ~= nil
+                    return apply_called
+                end,
+            },
+        },
+    }
+    function player:IsValid()
+        return true
+    end
+
+    sort_api.handlers["BetterInventory:ApplySortOrder"](player, serialized)
+
+    assert(apply_called, "valid sort-order apply should update preferences")
+    assert(#sort_api.client_calls == 1
+        and sort_api.client_calls[1].rpc == "BetterInventory:SortFeedbackResult"
+        and sort_api.client_calls[1].userid == "test_player"
+        and sort_api.client_calls[1].value == 1,
+        "successful sort-order apply should send one feedback sound RPC")
+end
+
 local function NewInventoryPlayer(items)
     local player = {
         userid = "test_player",
