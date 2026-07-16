@@ -5,9 +5,10 @@ organizes the inventory while keeping item movement server-authoritative.
 
 ## Release status
 
-`v0.6.0-dev` adds configurable category priorities on top of the validated
-`v0.5.0` multiplayer-safe sorting core. Pre-1.0 Workshop builds remain Friends
-Only while features and compatibility are still evolving.
+`v0.6.0` adds configurable per-player sort presets, single-key inventory +
+bag sorting, and safer default hotkeys on top of the validated `v0.5.0`
+multiplayer-safe sorting core. Pre-1.0 Workshop builds remain Friends Only
+while features and compatibility are still evolving.
 
 ## Features
 
@@ -26,14 +27,15 @@ Only while features and compatibility are still evolving.
 
 | Input | Action |
 |---|---|
-| `F5` | Sort the main inventory |
-| `F6` | Sort the equipped bag |
-| `F7` | Quick Stack matching items into existing bag stacks |
+| `F7` | Sort the main inventory; optionally also sort the equipped bag |
 | `F8` | Open the in-game category order panel |
 | Hover a main slot + `L` | Toggle that slot's sort lock |
 
 All hotkeys are configurable. If two inventory actions use the same key, the
 secondary action is disabled with a warning instead of dispatching both.
+Quick Stack and a separate bag-only sort hotkey remain configurable, but they
+are not assigned as active defaults so the mod only uses `F7` and `F8` out of
+the box.
 
 ## Quick Stack behavior
 
@@ -59,7 +61,10 @@ categories can still be moved up or down before applying. The order is saved
 per player and applies to both main-inventory and equipped-bag sorting. Each
 preset tab keeps its own editable order; switching tabs preserves unapplied
 drafts, `Reset Tab` affects only the open tab, and `Apply All` saves every tab
-plus the active preset. Anti
+plus the active preset. The panel also has a per-player `Sort Bag Too` toggle:
+when enabled, the main sort hotkey sorts the equipped bag in the same request;
+when disabled, the bag can still be sorted separately if a separate bag-only
+hotkey is configured. Anti
 Drop is best effort: it places expendable materials first so frog theft is more
 likely to remove one of them, but the game controls the final slot scan. The Mods
 menu priority values set the host defaults.

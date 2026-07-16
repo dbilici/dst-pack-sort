@@ -5,6 +5,7 @@ local SortPreferences = Class(function(self, inst)
     self.default_priorities = Categories.CopyPriorities(Categories.DEFAULT_PRIORITIES)
     self.active_preset = "default"
     self.custom_priorities = {}
+    self.sort_bag_with_inventory = false
 end)
 
 function SortPreferences:SetDefaultPriorities(priorities)
@@ -56,7 +57,11 @@ function SortPreferences:SetOrder(order)
     return self:SetPresetOrder(self.active_preset, order)
 end
 
-function SortPreferences:SetState(active_preset, orders)
+function SortPreferences:SetSortBagWithInventory(enabled)
+    self.sort_bag_with_inventory = enabled == true
+end
+
+function SortPreferences:SetState(active_preset, orders, settings)
     if type(orders) ~= "table" then
         return false
     end
@@ -79,6 +84,9 @@ function SortPreferences:SetState(active_preset, orders)
     end
     self.active_preset = active_preset
     self.custom_priorities = updated
+    if settings ~= nil then
+        self:SetSortBagWithInventory(settings.sort_bag_with_inventory)
+    end
     return true
 end
 
@@ -100,10 +108,12 @@ function SortPreferences:OnSave()
         end
     end
 
-    if next(preset_orders) ~= nil or self.active_preset ~= "default" then
+    if next(preset_orders) ~= nil or self.active_preset ~= "default"
+        or self.sort_bag_with_inventory then
         return {
             active_preset = self.active_preset,
             preset_orders = preset_orders,
+            sort_bag_with_inventory = self.sort_bag_with_inventory,
         }
     end
 end
@@ -111,6 +121,7 @@ end
 function SortPreferences:OnLoad(data)
     self.active_preset = "default"
     self.custom_priorities = {}
+    self.sort_bag_with_inventory = false
     if data == nil then
         return
     end
@@ -139,6 +150,7 @@ function SortPreferences:OnLoad(data)
             break
         end
     end
+    self.sort_bag_with_inventory = data.sort_bag_with_inventory == true
 end
 
 return SortPreferences

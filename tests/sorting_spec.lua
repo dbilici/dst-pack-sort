@@ -26,10 +26,15 @@ do
         preset_orders[key] = Categories.GetBasePresetOrder(key, Categories.DEFAULT_PRIORITIES)
     end
     preset_orders.combat = Categories.CopyOrder(custom_order)
-    local state = Categories.SerializePresetState("combat", preset_orders)
-    local active, decoded_orders = Categories.DeserializePresetState(state)
+    local state = Categories.SerializePresetState("combat", preset_orders, {
+        sort_bag_with_inventory = true,
+        bag_sort_available = true,
+    })
+    local active, decoded_orders, decoded_settings = Categories.DeserializePresetState(state)
     assert(active == "combat" and decoded_orders.combat[1] == "material",
         "preset state should preserve active tab and independent orders")
+    assert(decoded_settings.sort_bag_with_inventory and decoded_settings.bag_sort_available,
+        "preset state should preserve per-player bag sort settings")
 end
 
 do
@@ -55,15 +60,21 @@ do
     local preferences = SortPreferences({})
     local preset_orders = preferences:GetPresetOrders()
     preset_orders.combat = Categories.CopyOrder(custom_order)
-    assert(preferences:SetState("combat", preset_orders),
+    assert(preferences:SetState("combat", preset_orders, {
+            sort_bag_with_inventory = true,
+        }),
         "valid independent preset state should be accepted")
     local saved = preferences:OnSave()
-    assert(saved ~= nil and saved.preset_orders.combat ~= nil, "custom preset order should save")
+    assert(saved ~= nil and saved.preset_orders.combat ~= nil
+        and saved.sort_bag_with_inventory == true,
+        "custom preset order and bag sort preference should save")
 
     local restored = SortPreferences({})
     restored:OnLoad(saved)
     assert(restored.active_preset == "combat" and restored:GetOrder()[1] == "material",
         "saved active preset and custom order should restore")
+    assert(restored.sort_bag_with_inventory == true,
+        "saved bag sort preference should restore")
     local default_before = restored:GetPresetOrder("default")[1]
     restored:Reset("combat")
     assert(restored:GetPresetOrder("combat")[1] == "weapon",
@@ -323,6 +334,53 @@ do
         "sort-order apply RPC should register when inventory sort is enabled")
 end
 
+do
+    local sort_api = NewInstalledSortingApi({
+        sort_enabled = true,
+        bag_sort_enabled = false,
+        quick_stack_enabled = false,
+        sort_mode = "category",
+        sort_merge_stacks = true,
+        sort_category_priorities = Categories.DEFAULT_PRIORITIES,
+    })
+    local preset_orders = {}
+    for _, key in ipairs(Categories.PRESET_KEYS) do
+        preset_orders[key] = Categories.GetBasePresetOrder(key, Categories.DEFAULT_PRIORITIES)
+    end
+    local serialized = Categories.SerializePresetState("default", preset_orders, {
+        sort_bag_with_inventory = true,
+        bag_sort_available = true,
+    })
+    local apply_called = false
+    local applied_bag_sort = false
+    local player = {
+        userid = "test_player",
+        components = {
+            betterinventory_sortprefs = {
+                SetState = function(_, active_preset, orders, settings)
+                    apply_called = active_preset == "default" and orders ~= nil
+                    applied_bag_sort = settings ~= nil
+                        and settings.sort_bag_with_inventory == true
+                    return apply_called
+                end,
+            },
+        },
+    }
+    function player:IsValid()
+        return true
+    end
+
+    sort_api.handlers["BetterInventory:ApplySortOrder"](player, serialized)
+
+    assert(apply_called, "valid sort-order apply should update preferences")
+    assert(applied_bag_sort, "valid sort-order apply should update bag sort preference")
+    assert(#sort_api.client_calls == 1
+        and sort_api.client_calls[1].rpc == "BetterInventory:SortFeedbackResult"
+        and sort_api.client_calls[1].userid == "test_player"
+        and sort_api.client_calls[1].value == 1,
+        "successful sort-order apply should send one feedback sound RPC")
+end
+
 local function NewInventoryPlayer(items)
     local player = {
         userid = "test_player",
@@ -452,6 +510,14 @@ local function NewBagSortPlayer(items)
     return player, bag
 end
 
+local function AttachOverflowBag(player, items)
+    local _, bag = NewBagSortPlayer(items)
+    function player.components.inventory:GetOverflowContainer()
+        return bag
+    end
+    return bag
+end
+
 do
     local sort_api = NewInstalledSortingApi({
         sort_enabled = true,
@@ -521,6 +587,76 @@ do
     assert(#sort_api.client_calls == 1
         and sort_api.client_calls[1].rpc == "BetterInventory:SortFeedbackResult",
         "changed bag sort should send one feedback sound RPC")
+end
+
+do
+    local sort_api = NewInstalledSortingApi({
+        sort_enabled = true,
+        bag_sort_enabled = true,
+        quick_stack_enabled = false,
+        sort_mode = "category",
+        sort_merge_stacks = true,
+        sort_category_priorities = Categories.DEFAULT_PRIORITIES,
+    })
+    local inv_rocks = NewItem("rocks")
+    local inv_axe = NewItem("axe", {
+        components = { tool = {} },
+    })
+    local player, inventory = NewInventoryPlayer({ inv_rocks, inv_axe })
+    player.components.betterinventory_sortprefs = {
+        sort_bag_with_inventory = true,
+        GetPriorities = function()
+            return Categories.DEFAULT_PRIORITIES
+        end,
+    }
+    local bag_rocks = NewItem("rocks")
+    local bag_axe = NewItem("axe", {
+        components = { tool = {} },
+    })
+    local bag = AttachOverflowBag(player, { bag_rocks, bag_axe })
+
+    sort_api.handlers["BetterInventory:SortInventory"](player)
+
+    assert(inventory:GetItemInSlot(1) == inv_axe and inventory:GetItemInSlot(2) == inv_rocks,
+        "single-key sort should reorder main inventory")
+    assert(bag:GetItemInSlot(1) == bag_axe and bag:GetItemInSlot(2) == bag_rocks,
+        "single-key sort should also reorder equipped bag when enabled per player")
+    assert(#sort_api.client_calls == 1,
+        "single-key combined sort should send one feedback sound RPC")
+end
+
+do
+    local sort_api = NewInstalledSortingApi({
+        sort_enabled = true,
+        bag_sort_enabled = true,
+        quick_stack_enabled = false,
+        sort_mode = "category",
+        sort_merge_stacks = true,
+        sort_category_priorities = Categories.DEFAULT_PRIORITIES,
+    })
+    local inv_rocks = NewItem("rocks")
+    local inv_axe = NewItem("axe", {
+        components = { tool = {} },
+    })
+    local player, inventory = NewInventoryPlayer({ inv_rocks, inv_axe })
+    player.components.betterinventory_sortprefs = {
+        sort_bag_with_inventory = false,
+        GetPriorities = function()
+            return Categories.DEFAULT_PRIORITIES
+        end,
+    }
+    local bag_rocks = NewItem("rocks")
+    local bag_axe = NewItem("axe", {
+        components = { tool = {} },
+    })
+    local bag = AttachOverflowBag(player, { bag_rocks, bag_axe })
+
+    sort_api.handlers["BetterInventory:SortInventory"](player)
+
+    assert(inventory:GetItemInSlot(1) == inv_axe and inventory:GetItemInSlot(2) == inv_rocks,
+        "single-key sort should still reorder main inventory")
+    assert(bag:GetItemInSlot(1) == bag_rocks and bag:GetItemInSlot(2) == bag_axe,
+        "single-key sort should leave equipped bag unchanged when disabled per player")
 end
 
 do

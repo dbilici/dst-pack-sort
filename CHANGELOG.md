@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.6.0 - Feature Release (2026-07-16)
 
 - Added an in-game sort-order panel on a configurable hotkey (default `F8`).
 - Added Default, Combat, Building, Survivor, and best-effort Anti Drop presets.
@@ -30,6 +30,13 @@
 - Main-inventory and equipped-bag sort now play the same local inventory-move
   feedback sound as Quick Stack, but only when the operation actually changes
   item positions or stack sizes.
+- Slot lock toggles and successful sort-order Apply actions now play a small
+  local feedback sound for the requesting player.
+- Added a per-player sort-order panel toggle that lets the main inventory sort
+  hotkey also sort the equipped bag in the same server-authoritative request.
+- Changed the default active hotkeys to `F7` for sort and `F8` for the
+  sort-order panel. Separate bag-only sort and Quick Stack remain configurable
+  but no longer register active default hotkeys.
 - The sort-order panel's open request and Apply All are rate limited
   independently, so a fast Apply can no longer be silently dropped by the
   preceding panel-open request.

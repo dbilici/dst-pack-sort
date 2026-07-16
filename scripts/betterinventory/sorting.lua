@@ -421,6 +421,13 @@ function Sorting.Setup(context)
             or CONFIGURED_CATEGORY_SORT_ORDER
     end
 
+    local function ShouldSortBagWithInventory(player)
+        local preferences = player ~= nil and player.components ~= nil
+            and player.components.betterinventory_sortprefs or nil
+        return CONFIG.bag_sort_enabled and preferences ~= nil
+            and preferences.sort_bag_with_inventory == true
+    end
+
     local function RestoreDetachedSortItems(inventory, records)
         for _, record in ipairs(records) do
             local item = record.item
@@ -645,6 +652,16 @@ function Sorting.Setup(context)
         return SlotsChanged(before_slots, container, num_slots)
     end
 
+    local function SortInventoryAndMaybeBagForPlayer(player)
+        local inventory_changed = SortInventoryForPlayer(player)
+        if not ShouldSortBagWithInventory(player) then
+            return inventory_changed
+        end
+
+        local bag_changed = SortBagForPlayer(player)
+        return inventory_changed or bag_changed
+    end
+
     local function QuickStackToBagForPlayer(player)
         if not CONFIG.quick_stack_enabled then
             return false
@@ -822,8 +839,19 @@ function Sorting.Setup(context)
                 preferences ~= nil and preferences.default_priorities
                     or CONFIGURED_CATEGORY_SORT_ORDER)
         end
-        local current = Categories.SerializePresetState(active_preset, current_orders)
-        local defaults = Categories.SerializePresetState(active_preset, base_orders)
+        local current_settings = {
+            sort_bag_with_inventory = preferences ~= nil
+                and preferences.sort_bag_with_inventory == true,
+            bag_sort_available = CONFIG.bag_sort_enabled == true,
+        }
+        local default_settings = {
+            sort_bag_with_inventory = false,
+            bag_sort_available = CONFIG.bag_sort_enabled == true,
+        }
+        local current = Categories.SerializePresetState(active_preset, current_orders,
+            current_settings)
+        local defaults = Categories.SerializePresetState(active_preset, base_orders,
+            default_settings)
         if current == nil or defaults == nil then
             return
         end
@@ -925,13 +953,16 @@ function Sorting.Setup(context)
                     end
 
                     local preferences = player.components.betterinventory_sortprefs
-                    local active_preset, orders = Categories.DeserializePresetState(serialized)
-                    if active_preset == nil or not preferences:SetState(active_preset, orders) then
+                    local active_preset, orders, settings =
+                        Categories.DeserializePresetState(serialized)
+                    if active_preset == nil
+                        or not preferences:SetState(active_preset, orders, settings) then
                         DebugWarn("Rejected invalid sort-order request for "
                             .. tostring(player.userid or player.GUID))
                         return
                     end
 
+                    SendSortFeedbackResult(player, true)
                     DebugLog("Updated sort order for " .. tostring(player.userid or player.GUID))
                 end)
         end
@@ -949,7 +980,7 @@ function Sorting.Setup(context)
 
         if CONFIG.sort_enabled then
             AddModRPCHandler(SORT_RPC_NAMESPACE, SORT_RPC_NAME, function(player)
-                HandleInventoryRPC(player, SortInventoryForPlayer, "inventory sort",
+                HandleInventoryRPC(player, SortInventoryAndMaybeBagForPlayer, "inventory sort",
                     SendSortFeedbackResult)
             end)
         end
@@ -983,10 +1014,17 @@ function Sorting.Setup(context)
                 KEY_V = GLOBAL.KEY_V,
             }
 
-            local sort_key = KEY_MAP[CONFIG.sort_key] or GLOBAL.KEY_F5
-            local bag_sort_key = KEY_MAP[CONFIG.bag_sort_key] or GLOBAL.KEY_F6
-            local quick_stack_key = KEY_MAP[CONFIG.quick_stack_key] or GLOBAL.KEY_F7
-            local sort_order_key = KEY_MAP[CONFIG.sort_order_key] or GLOBAL.KEY_F8
+            local function ResolveKey(config_key, fallback)
+                if config_key == "KEY_NONE" then
+                    return nil
+                end
+                return KEY_MAP[config_key] or fallback
+            end
+
+            local sort_key = ResolveKey(CONFIG.sort_key, GLOBAL.KEY_F7)
+            local bag_sort_key = ResolveKey(CONFIG.bag_sort_key, nil)
+            local quick_stack_key = ResolveKey(CONFIG.quick_stack_key, nil)
+            local sort_order_key = ResolveKey(CONFIG.sort_order_key, GLOBAL.KEY_F8)
 
             local function CanUseSortHotkey()
                 if GLOBAL.ThePlayer == nil or GLOBAL.ThePlayer.HUD == nil then
