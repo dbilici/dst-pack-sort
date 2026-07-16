@@ -37,6 +37,9 @@
 - Changed the default active hotkeys to `F7` for sort and `F8` for the
   sort-order panel. Separate bag-only sort and Quick Stack remain configurable
   but no longer register active default hotkeys.
+- Expanded 24-slot inventories now keep the Vanilla layout as a scaled single
+  row, preventing the long bar from overlapping the equipment cluster or
+  right-side HUD.
 - The sort-order panel's open request and Apply All are rate limited
   independently, so a fast Apply can no longer be silently dropped by the
   preceding panel-open request.

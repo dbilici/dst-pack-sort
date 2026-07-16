@@ -86,17 +86,17 @@ configuration_options = {
     {
         name = "inventory_layout",
         label = "Inventory Layout",
-        hover = "Layout for the expanded inventory bar.",
+        hover = "Vanilla keeps one scaled row for 24 slots. Safe 2 x 12 wraps expanded inventories into two rows.",
         options = {
-            {description = "Vanilla", data = "vanilla"},
-            {description = "Compact 2 x 12", data = "2x12"},
+            {description = "Vanilla Single Row", data = "vanilla"},
+            {description = "Safe 2 x 12", data = "2x12"},
         },
         default = "2x12",
     },
     {
         name = "ui_scale",
         label = "Inventory UI Scale",
-        hover = "Smaller values keep the 2-row inventory from stretching across the screen.",
+        hover = "Smaller values keep the expanded inventory bar from stretching across the screen.",
         options = {
             {description = "Small", data = 0.78},
             {description = "Compact", data = 0.85},

@@ -73,6 +73,7 @@ local CONFIG = {
 local MAX_ITEM_SLOTS = CONFIG.inventory_size == 24 and 24 or 15
 local USE_EXPANDED_INVENTORY = MAX_ITEM_SLOTS > 15
 local USE_2X12_LAYOUT = USE_EXPANDED_INVENTORY and CONFIG.inventory_layout == "2x12"
+local USE_SCALED_SINGLE_ROW_LAYOUT = USE_EXPANDED_INVENTORY and CONFIG.inventory_layout ~= "2x12"
 local UI_SCALE = CONFIG.ui_scale or 0.85
 local CORE_PROTOCOL_VERSION = 5
 local CORE_RPC_NAMESPACE = "BetterInventoryCore"
@@ -718,7 +719,7 @@ local INVENTORY_BG_WIDTH = 1352
 local INVENTORY_BG_HEIGHT = 204
 
 local function FitInventoryBarBackground(self, min_x, max_x, min_y, max_y)
-    -- Keep a real background, but fit it to the compact two-row layout.
+    -- Keep a real background, but fit it to the active expanded layout.
     -- v0.2.4 hid the background entirely; v0.2.3 scaled it too aggressively.
     -- This uses the uploaded inventory_bg texture dimensions and positions it
     -- around the actual slot bounds instead of stretching it across the screen.
@@ -743,6 +744,71 @@ local function FitInventoryBarBackground(self, min_x, max_x, min_y, max_y)
     -- hidden while we use our fitted custom background.
     if self.bgcover ~= nil and self.bgcover.Hide ~= nil then
         self.bgcover:Hide()
+    end
+end
+
+local function RepositionScaledSingleRowInventoryBar(self)
+    if not USE_SCALED_SINGLE_ROW_LAYOUT or self.inv == nil then
+        return
+    end
+
+    -- Keep the vanilla idea of one long row, but rebuild it inside a tighter
+    -- footprint and cap the root scale so 24 inventory slots plus equipment
+    -- slots do not run into the right-side HUD.
+    local SLOT_STEP = 64
+    local EQUIP_GAP = 78
+    local single_row_scale = math.min(UI_SCALE, 0.78)
+    local inventory_half_width = ((MAX_ITEM_SLOTS - 1) * SLOT_STEP) / 2
+    local slot_half_size = 34
+    local min_x = 999999
+    local max_x = -999999
+    local min_y = 999999
+    local max_y = -999999
+
+    if self.root ~= nil and self.root.SetScale ~= nil then
+        self.root:SetScale(single_row_scale, single_row_scale, 1)
+    end
+
+    for slot_index, slot in pairs(self.inv) do
+        if type(slot_index) == "number" and slot ~= nil and slot.SetPosition ~= nil then
+            local index = slot_index - 1
+            local x = -inventory_half_width + index * SLOT_STEP
+            local y = 0
+
+            slot:SetPosition(x, y, 0)
+            min_x = math.min(min_x, x - slot_half_size)
+            max_x = math.max(max_x, x + slot_half_size)
+            min_y = math.min(min_y, y - slot_half_size)
+            max_y = math.max(max_y, y + slot_half_size)
+            if slot.SetScale ~= nil then
+                slot:SetScale(1, 1, 1)
+            end
+        end
+    end
+
+    if self.equip ~= nil and self.equipslotinfo ~= nil then
+        local equip_start_x = inventory_half_width + EQUIP_GAP
+
+        for i, info in ipairs(self.equipslotinfo) do
+            local slot = self.equip[info.slot]
+            if slot ~= nil and slot.SetPosition ~= nil then
+                local x = equip_start_x + (i - 1) * SLOT_STEP
+                local y = 0
+
+                slot:SetPosition(x, y, 0)
+                min_x = math.min(min_x, x - slot_half_size)
+                max_x = math.max(max_x, x + slot_half_size)
+                min_y = math.min(min_y, y - slot_half_size)
+                max_y = math.max(max_y, y + slot_half_size)
+                if slot.SetScale ~= nil then
+                    slot:SetScale(1, 1, 1)
+                end
+            end
+        end
+    end
+
+    if min_x < max_x and min_y < max_y then
+        FitInventoryBarBackground(self, min_x, max_x, min_y, max_y)
     end
 end
 
@@ -825,6 +891,11 @@ local function Reposition2x12InventoryBar(self)
     end
 end
 
+local function RepositionExpandedInventoryBar(self)
+    RepositionScaledSingleRowInventoryBar(self)
+    Reposition2x12InventoryBar(self)
+end
+
 local inventory_bar_rebuild_patched = false
 
 AddClassPostConstruct("widgets/inventorybar", function(self)
@@ -845,7 +916,7 @@ AddClassPostConstruct("widgets/inventorybar", function(self)
             function InventoryBarClass:Rebuild(...)
                 Rebuild_Base(self, ...)
                 AddExtraEquipSlotsToInventoryBar(self)
-                Reposition2x12InventoryBar(self)
+                RepositionExpandedInventoryBar(self)
                 if CONFIG.slot_lock_enabled and self.owner == GLOBAL.ThePlayer then
                     ACTIVE_INVENTORY_BAR = self
                     RefreshSlotLockVisuals()
@@ -856,7 +927,7 @@ AddClassPostConstruct("widgets/inventorybar", function(self)
         end
     end
 
-    Reposition2x12InventoryBar(self)
+    RepositionExpandedInventoryBar(self)
     if CONFIG.slot_lock_enabled then
         RefreshSlotLockVisuals()
     end

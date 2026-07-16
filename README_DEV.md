@@ -21,6 +21,9 @@
 8. With default settings, verify the mod only registers active gameplay
    hotkeys for `F7` sort and `F8` sort-order panel. Quick Stack and the
    separate bag-only sort hotkey should remain inactive until configured.
+9. Set Inventory Size to `Expanded 24` and Inventory Layout to
+   `Vanilla Single Row`; verify all 24 inventory slots stay on one scaled row
+   and do not overlap the equipment cluster or right-side HUD.
 
 ---
 
