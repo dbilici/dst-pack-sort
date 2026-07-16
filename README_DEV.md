@@ -24,6 +24,9 @@
 9. Set Inventory Size to `Expanded 24` and Inventory Layout to
    `Vanilla Single Row`; verify all 24 inventory slots stay on one scaled row
    and do not overlap the equipment cluster or right-side HUD.
+10. With two clients on the same server, set one client to `Vanilla Single Row`
+    and the other to `Safe 2 x 12`; verify each player keeps their own HUD
+    layout without changing the server/world mod configuration.
 
 ---
 

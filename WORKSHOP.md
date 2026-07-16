@@ -23,7 +23,7 @@ without moving item authority away from the server.
 [h2]Features[/h2]
 
 [list]
-[*]Optional 24-slot main inventory with a scaled vanilla single row or compact 2 x 12 layout
+[*]Optional 24-slot main inventory with per-player scaled vanilla single-row or compact 2 x 12 HUD layout
 [*]Separate optional Bag, Armor, and Accessory equipment slots
 [*]Deterministic category sorting with optional stack merging
 [*]Craftable-item categories derived from DST's native crafting filters
@@ -33,7 +33,7 @@ without moving item authority away from the server.
 [*]Independent sorting for the equipped bag, even while its UI is closed
 [*]Persistent manual slot locks for items you want to keep in place
 [*]Quick Stack into compatible stacks already present in the equipped bag
-[*]Configurable hotkeys and inventory UI scale
+[*]Configurable hotkeys plus client-local inventory HUD layout and scale
 [*]Server-side cooldowns, transaction guards, and item recovery
 [/list]
 
@@ -91,6 +91,7 @@ https://github.com/dbilici/dst-pack-sort
 [list]
 [*]Added a scaled Vanilla Single Row layout for expanded 24-slot inventories.
 [*]Kept Safe 2 x 12 as the compact two-row option for players who prefer it.
+[*]Made inventory HUD layout and scale client-local preferences instead of server-wide world settings.
 [*]Added the in-game category order panel with Default, Combat, Building, Survivor, and Anti Drop presets.
 [*]Added per-player persistent sort preferences and editable preset tabs.
 [*]Added Sort Bag Too, so the main sort hotkey can also sort the equipped bag in the same request.

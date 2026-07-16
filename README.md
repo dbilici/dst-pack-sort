@@ -5,16 +5,16 @@ organizes the inventory while keeping item movement server-authoritative.
 
 ## Release status
 
-`v0.7.0` adds a scaled vanilla single-row option for expanded 24-slot
-inventories on top of the configurable per-player sort presets, single-key
-inventory + bag sorting, and safer default hotkeys from `v0.6.0`. Pre-1.0
-Workshop builds remain Friends Only while features and compatibility are still
-evolving.
+`v0.7.0` adds a scaled vanilla single-row option and client-local HUD layout
+preferences for expanded 24-slot inventories on top of the configurable
+per-player sort presets, single-key inventory + bag sorting, and safer default
+hotkeys from `v0.6.0`. Pre-1.0 Workshop builds remain Friends Only while
+features and compatibility are still evolving.
 
 ## Features
 
 - Optional 24-slot main inventory with either a scaled vanilla single row or a
-  compact 2 x 12 HUD layout.
+  compact 2 x 12 HUD layout, chosen per player.
 - Separate optional Bag, Armor, and Accessory equipment slots.
 - Deterministic category sorting with stack merging and condition ordering.
 - Craftable-item classification based on DST's native crafting filters.
@@ -55,6 +55,10 @@ no-op requests remain silent.
 
 The mod targets Don't Starve Together API version 10. Existing v0.2.6+ saves
 remain compatible. Back up important worlds before changing a mod setup.
+
+HUD-only options such as Inventory Layout and Inventory UI Scale are saved as
+local client preferences. Gameplay and inventory-authority options remain
+server/world settings.
 
 ## Configuration
 

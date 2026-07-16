@@ -8,6 +8,7 @@ Current v0.7.0 build:
 - Namespaced equipment slots to avoid collisions with other mods
 - Scaled vanilla single-row or safe 2 x 12 inventory bar layout
 - Fitted custom background for expanded inventory layouts
+- Client-local HUD layout and scale preferences
 - Separate optional Bag / Armor / Accessory equip slots
 - Dedicated bag slot keeps vanilla overflow-container behavior
 - Client bag-content reads account for the dedicated Bag slot
@@ -87,6 +88,7 @@ configuration_options = {
         name = "inventory_layout",
         label = "Inventory Layout",
         hover = "Vanilla keeps one scaled row for 24 slots. Safe 2 x 12 wraps expanded inventories into two rows.",
+        client = true,
         options = {
             {description = "Vanilla Single Row", data = "vanilla"},
             {description = "Safe 2 x 12", data = "2x12"},
@@ -97,6 +99,7 @@ configuration_options = {
         name = "ui_scale",
         label = "Inventory UI Scale",
         hover = "Smaller values keep the expanded inventory bar from stretching across the screen.",
+        client = true,
         options = {
             {description = "Small", data = 0.78},
             {description = "Compact", data = 0.85},

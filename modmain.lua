@@ -36,8 +36,8 @@ Assets = {
 
 local CONFIG = {
     inventory_size = GetModConfigData("inventory_size") or 24,
-    inventory_layout = GetModConfigData("inventory_layout") or "2x12",
-    ui_scale = GetModConfigData("ui_scale") or 0.85,
+    inventory_layout = GetModConfigData("inventory_layout", true) or "2x12",
+    ui_scale = GetModConfigData("ui_scale", true) or 0.85,
     slot_bag = GetModConfigData("slot_bag") ~= false,
     slot_armor = GetModConfigData("slot_armor") ~= false,
     slot_accessory = GetModConfigData("slot_accessory") ~= false,
