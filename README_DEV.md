@@ -1,4 +1,4 @@
-# v0.6.0 maintenance checks
+# v0.7.0 maintenance checks
 
 1. Sort an inventory holding both condition-tracked and condition-less copies
    of the same prefab; the sort must complete and condition-less copies must
@@ -21,6 +21,12 @@
 8. With default settings, verify the mod only registers active gameplay
    hotkeys for `F7` sort and `F8` sort-order panel. Quick Stack and the
    separate bag-only sort hotkey should remain inactive until configured.
+9. Set Inventory Size to `Expanded 24` and Inventory Layout to
+   `Vanilla Single Row`; verify all 24 inventory slots stay on one scaled row
+   and do not overlap the equipment cluster or right-side HUD.
+10. With two clients on the same server, set one client to `Vanilla Single Row`
+    and the other to `Safe 2 x 12`; verify each player keeps their own HUD
+    layout without changing the server/world mod configuration.
 
 ---
 

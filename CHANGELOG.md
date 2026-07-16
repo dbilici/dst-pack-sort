@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.0 - Feature Release (2026-07-16)
+
+- Expanded 24-slot inventories can now keep the Vanilla layout as a scaled
+  single row, preventing the long bar from overlapping the equipment cluster or
+  right-side HUD.
+- Renamed the expanded layout options to make the choice clearer:
+  `Vanilla Single Row` keeps one row, while `Safe 2 x 12` wraps to two rows.
+- HUD layout and inventory UI scale are now client-local preferences instead of
+  server-wide world settings.
+
 ## v0.6.0 - Feature Release (2026-07-16)
 
 - Added an in-game sort-order panel on a configurable hotkey (default `F8`).
