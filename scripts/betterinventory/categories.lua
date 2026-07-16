@@ -87,9 +87,13 @@ function Categories.GetBasePresetOrder(key, default_priorities)
     return preset ~= nil and Categories.CopyOrder(preset.order) or nil
 end
 
-function Categories.SerializePresetState(active_preset, orders)
+function Categories.SerializePresetState(active_preset, orders, settings)
     local valid_active = false
     local parts = { "active:" .. tostring(active_preset or "") }
+    if settings ~= nil then
+        table.insert(parts, "bag_sort:" .. (settings.sort_bag_with_inventory and "1" or "0"))
+        table.insert(parts, "bag_sort_available:" .. (settings.bag_sort_available and "1" or "0"))
+    end
     for _, key in ipairs(Categories.PRESET_KEYS) do
         if key == active_preset then
             valid_active = true
@@ -105,11 +109,18 @@ end
 
 function Categories.DeserializePresetState(serialized)
     local active_preset = nil
+    local settings = {
+        sort_bag_with_inventory = false,
+    }
     local orders = {}
     for part in string.gmatch(tostring(serialized or ""), "[^|]+") do
         local key, value = string.match(part, "^([a-z_]+):(.*)$")
         if key == "active" then
             active_preset = value
+        elseif key == "bag_sort" then
+            settings.sort_bag_with_inventory = value == "1" or value == "true"
+        elseif key == "bag_sort_available" then
+            settings.bag_sort_available = value == "1" or value == "true"
         elseif key ~= nil then
             local order = Categories.DeserializeOrder(value)
             if order == nil or orders[key] ~= nil then
@@ -128,7 +139,8 @@ function Categories.DeserializePresetState(serialized)
             active_valid = true
         end
     end
-    return active_valid and active_preset or nil, active_valid and orders or nil
+    return active_valid and active_preset or nil, active_valid and orders or nil,
+        active_valid and settings or nil
 end
 
 function Categories.CopyPriorities(priorities)

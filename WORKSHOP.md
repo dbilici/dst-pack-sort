@@ -29,6 +29,7 @@ without moving item authority away from the server.
 [*]Craftable-item categories derived from DST's native crafting filters
 [*]In-game category order panel with persistent per-player preferences
 [*]Default, Combat, Building, Survivor, and best-effort Anti Drop presets
+[*]Per-player option for F5 to sort the equipped bag together with the inventory
 [*]Independent sorting for the equipped bag, even while its UI is closed
 [*]Persistent manual slot locks for items you want to keep in place
 [*]Quick Stack into compatible stacks already present in the equipped bag
@@ -40,8 +41,8 @@ without moving item authority away from the server.
 
 [table]
 [tr][th]Input[/th][th]Action[/th][/tr]
-[tr][td]F5[/td][td]Sort the main inventory[/td][/tr]
-[tr][td]F6[/td][td]Sort the equipped bag[/td][/tr]
+[tr][td]F5[/td][td]Sort the main inventory; optionally also sort the equipped bag[/td][/tr]
+[tr][td]F6[/td][td]Sort only the equipped bag[/td][/tr]
 [tr][td]F7[/td][td]Quick Stack matching items into existing bag stacks[/td][/tr]
 [tr][td]F8[/td][td]Open the category order panel[/td][/tr]
 [tr][td]Hover a main slot + L[/td][td]Toggle that slot's sort lock[/td][/tr]

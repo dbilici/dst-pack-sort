@@ -32,6 +32,8 @@
   item positions or stack sizes.
 - Slot lock toggles and successful sort-order Apply actions now play a small
   local feedback sound for the requesting player.
+- Added a per-player sort-order panel toggle that lets the main inventory sort
+  hotkey also sort the equipped bag in the same server-authoritative request.
 - The sort-order panel's open request and Apply All are rate limited
   independently, so a fast Apply can no longer be silently dropped by the
   preceding panel-open request.

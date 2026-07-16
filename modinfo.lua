@@ -14,6 +14,7 @@ Current v0.6.0 development build:
 - Vanilla-only item slot rules for safer testing
 - Inventory sort hotkey with optional stack merging
 - In-game sort-order panel with per-player persistent category order
+- Per-player option for the main sort hotkey to also sort the equipped bag
 - Default / Combat / Building / Survivor / Anti Drop sort presets
 - Independent editable preset tabs with per-tab reset and Apply All
 - Separate hotkey to sort the equipped bag without moving items between containers

@@ -19,12 +19,16 @@ local SortOrderScreen = Class(Screen, function(self, current_serialized, default
     self.on_apply = on_apply
     self.on_close = on_close
 
-    local active_tab, current_orders = Categories.DeserializePresetState(current_serialized)
+    local active_tab, current_orders, current_settings = Categories.DeserializePresetState(current_serialized)
     local _, base_orders = Categories.DeserializePresetState(default_serialized)
     self.active_tab = active_tab or "default"
     self.draft_orders = current_orders or BuildFallbackOrders(Categories.DEFAULT_PRIORITIES)
     self.base_orders = base_orders or BuildFallbackOrders(Categories.DEFAULT_PRIORITIES)
     self.order = Categories.CopyOrder(self.draft_orders[self.active_tab])
+    self.sort_bag_with_inventory = current_settings ~= nil
+        and current_settings.sort_bag_with_inventory == true
+    self.bag_sort_available = current_settings == nil
+        or current_settings.bag_sort_available ~= false
 
     self.root = self:AddChild(TEMPLATES.ScreenRoot("betterinventory_sort_order_root"))
     self.bg = self.root:AddChild(TEMPLATES.BackgroundTint(0.82))
@@ -71,6 +75,16 @@ local SortOrderScreen = Class(Screen, function(self, current_serialized, default
     self.preset_note:EnableWordWrap(true)
     self.preset_note:SetHAlign(ANCHOR_LEFT)
 
+    self.bag_sort_button = self.root:AddChild(TEMPLATES.StandardButton(function()
+        if not self.bag_sort_available then
+            return
+        end
+        self.sort_bag_with_inventory = not self.sort_bag_with_inventory
+        self:RefreshBagSortButton()
+        self:RefreshNote()
+    end, "", {250, 44}))
+    self.bag_sort_button:SetPosition(-355, -230)
+
     self.rows = {}
     for index = 1, #Categories.ORDER do
         local row_index = index
@@ -116,7 +130,10 @@ local SortOrderScreen = Class(Screen, function(self, current_serialized, default
 
     self.apply_button = self.root:AddChild(TEMPLATES.StandardButton(function()
         self:SaveCurrentDraft()
-        local serialized = Categories.SerializePresetState(self.active_tab, self.draft_orders)
+        local serialized = Categories.SerializePresetState(self.active_tab, self.draft_orders, {
+            sort_bag_with_inventory = self.sort_bag_with_inventory,
+            bag_sort_available = self.bag_sort_available,
+        })
         if serialized ~= nil and self.on_apply ~= nil then
             self.on_apply(serialized)
         end
@@ -137,6 +154,7 @@ local SortOrderScreen = Class(Screen, function(self, current_serialized, default
     self.default_focus = self.apply_button
     self:RefreshRows()
     self:RefreshPresetButtons()
+    self:RefreshBagSortButton()
     self:RefreshNote()
 end)
 
@@ -174,12 +192,42 @@ function SortOrderScreen:GetActiveTabLabel()
 end
 
 function SortOrderScreen:RefreshNote()
+    local bag_note = self.sort_bag_with_inventory
+        and " F5: inventory + bag."
+        or " F5: inventory only."
+    if not self.bag_sort_available then
+        bag_note = " Bag sort is disabled in mod settings."
+    end
     if self.active_tab == "anti_drop" then
         self.preset_note:SetString(
-            "Best effort: expendable items first for frog theft. The game controls slot scanning.")
+            "Best effort: expendable items first for frog theft. The game controls slot scanning."
+            .. bag_note)
     else
         self.preset_note:SetString(self:GetActiveTabLabel()
-            .. " tab. Changes are kept while switching tabs; Apply All saves every tab.")
+            .. " tab. Changes are kept while switching tabs; Apply All saves every tab."
+            .. bag_note)
+    end
+end
+
+function SortOrderScreen:RefreshBagSortButton()
+    if not self.bag_sort_available then
+        self.bag_sort_button:SetText("SORT BAG TOO: DISABLED")
+        self.bag_sort_button:Disable()
+        return
+    end
+
+    self.bag_sort_button:Enable()
+    self.bag_sort_button:SetText(self.sort_bag_with_inventory
+        and "SORT BAG TOO: ON"
+        or "SORT BAG TOO: OFF")
+    self.bag_sort_button:SetTextColour(0.12, 0.09, 0.04, 1)
+    self.bag_sort_button:SetTextFocusColour(0, 0, 0, 1)
+    if self.sort_bag_with_inventory then
+        self.bag_sort_button:SetImageNormalColour(1, 1, 1, 1)
+        self.bag_sort_button:SetImageFocusColour(1, 1, 1, 1)
+    else
+        self.bag_sort_button:SetImageNormalColour(0.58, 0.52, 0.42, 0.92)
+        self.bag_sort_button:SetImageFocusColour(0.82, 0.75, 0.62, 1)
     end
 end
 

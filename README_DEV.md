@@ -15,6 +15,9 @@
    feedback sound. Repeat once for equipped bag sort.
 6. Toggle a slot lock and press Apply All in the sort-order panel; each
    successful action should play one local feedback sound for that player only.
+7. In the sort-order panel, enable `Sort Bag Too`, press the main sort hotkey,
+   and verify both the main inventory and equipped bag sort once. Disable it
+   and verify the same hotkey leaves the equipped bag unchanged.
 
 ---
 
