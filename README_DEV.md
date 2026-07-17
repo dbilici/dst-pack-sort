@@ -36,6 +36,8 @@
     for the local player only and remains saved after reconnect/reload.
 13. In the F8 sort-order panel, click and drag across category rows repeatedly;
     row highlighting must update without a warning screen or stack overflow.
+    Drop near row edges and release quickly a few times; the category should
+    still move to the intended highlighted row without needing a retry.
 
 ---
 

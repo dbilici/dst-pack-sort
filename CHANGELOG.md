@@ -6,6 +6,9 @@
   changed while the panel refreshed selected category rows during drag or hover.
 - Category rows now draw their selected state with explicit colors instead of
   toggling the native button selected state, avoiding DST focus recursion.
+- Made category drag/drop more forgiving by checking the mouse-up position,
+  widening the row hit target slightly, and falling back to the last valid drag
+  target when DST misses an intermediate drag frame.
 
 ## v0.8.6 - Feature Release (2026-07-17)
 

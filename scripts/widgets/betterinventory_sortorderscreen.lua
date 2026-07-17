@@ -41,6 +41,7 @@ local SortOrderScreen = Class(Screen, function(self, current_serialized, default
     self.selected_index = 1
     self.drag_source_index = nil
     self.drag_target_index = nil
+    self.drag_last_target_index = nil
     self.hud_settings = {
         layout = hud_settings ~= nil and hud_settings.layout or "2x12",
         scale = hud_settings ~= nil and hud_settings.scale or 0.85,
@@ -355,28 +356,37 @@ function SortOrderScreen:CycleHudScale()
 end
 
 function SortOrderScreen:SelectRow(index)
-    if index < 1 or index > #self.order then
+    if index == nil or index < 1 or index > #self.order then
         return
     end
     self.selected_index = index
     self:RefreshRows()
 end
 
-function SortOrderScreen:GetRowIndexUnderMouse()
-    if TheInput == nil or TheInput.GetScreenPosition == nil then
-        return nil
+function SortOrderScreen:GetRowIndexUnderMouse(x, y)
+    if x == nil or y == nil then
+        if TheInput == nil or TheInput.GetScreenPosition == nil then
+            return nil
+        end
+
+        local mouse_pos = TheInput:GetScreenPosition()
+        if mouse_pos == nil then
+            return nil
+        end
+
+        x = mouse_pos.x
+        y = mouse_pos.y
     end
 
-    local mouse_pos = TheInput:GetScreenPosition()
-    if mouse_pos == nil then
+    if x == nil or y == nil then
         return nil
     end
 
     for index, row in ipairs(self.rows) do
         local row_pos = row.backing:GetWorldPosition()
         if row_pos ~= nil
-            and math.abs(mouse_pos.x - row_pos.x) <= 305
-            and math.abs(mouse_pos.y - row_pos.y) <= 18 then
+            and math.abs(x - row_pos.x) <= 325
+            and math.abs(y - row_pos.y) <= 24 then
             return index
         end
     end
@@ -384,9 +394,23 @@ function SortOrderScreen:GetRowIndexUnderMouse()
     return nil
 end
 
+function SortOrderScreen:SetDragTarget(index)
+    if index == nil or index < 1 or index > #self.order then
+        return
+    end
+
+    self.drag_last_target_index = index
+    if self.drag_target_index ~= index then
+        self.drag_target_index = index
+        self.selected_index = index
+        self:RefreshRows()
+    end
+end
+
 function SortOrderScreen:BeginRowDrag(index)
     self.drag_source_index = index
     self.drag_target_index = index
+    self.drag_last_target_index = index
     self.selected_index = index
     self:RefreshRows()
 end
@@ -398,45 +422,48 @@ function SortOrderScreen:HoverRow(index)
     if index < 1 or index > #self.order then
         return
     end
-    if self.drag_target_index ~= index then
-        self.drag_target_index = index
-        self.selected_index = index
-        self:RefreshRows()
-    end
+    self:SetDragTarget(index)
 end
 
-function SortOrderScreen:UpdateRowDrag()
+function SortOrderScreen:UpdateRowDrag(x, y)
     if self.drag_source_index == nil then
         return
     end
 
-    local target = self:GetRowIndexUnderMouse()
-    if target ~= nil and target ~= self.drag_target_index then
-        self.drag_target_index = target
-        self.selected_index = target
-        self:RefreshRows()
-    end
+    self:SetDragTarget(self:GetRowIndexUnderMouse(x, y))
 end
 
-function SortOrderScreen:OnGlobalMouseButton(button, down)
+function SortOrderScreen:OnGlobalMouseButton(button, down, x, y)
+    if MOUSEBUTTON_LEFT ~= nil and button ~= MOUSEBUTTON_LEFT then
+        return false
+    end
     if down or self.drag_source_index == nil then
         return false
     end
 
-    self:ReleaseRowDrag(self.drag_target_index or self.drag_source_index)
+    self:UpdateRowDrag(x, y)
+    self:ReleaseRowDrag(
+        self.drag_target_index or self.drag_last_target_index or self.drag_source_index,
+        x,
+        y)
     return true
 end
 
-function SortOrderScreen:ReleaseRowDrag(fallback_index)
+function SortOrderScreen:ReleaseRowDrag(fallback_index, x, y)
     if self.drag_source_index == nil then
         self:SelectRow(fallback_index)
         return
     end
 
     local source = self.drag_source_index
-    local target = self:GetRowIndexUnderMouse() or self.drag_target_index or source
+    local target = self:GetRowIndexUnderMouse(x, y)
+        or fallback_index
+        or self.drag_target_index
+        or self.drag_last_target_index
+        or source
     self.drag_source_index = nil
     self.drag_target_index = nil
+    self.drag_last_target_index = nil
 
     if target ~= source then
         self:MoveCategoryToIndex(source, target)

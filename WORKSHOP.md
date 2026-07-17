@@ -90,6 +90,7 @@ https://github.com/dbilici/dst-pack-sort
 
 [list]
 [*]Fixed an F8 category order panel stack overflow caused by row focus changes during panel refresh.
+[*]Made F8 category drag/drop more forgiving when releasing quickly or near row edges.
 [*]Added a scaled Vanilla Single Row layout for expanded 24-slot inventories.
 [*]Kept Safe 2 x 12 as the compact two-row option for players who prefer it.
 [*]Made inventory HUD layout and scale client-local preferences instead of server-wide world settings.
