@@ -1,4 +1,4 @@
-# v0.8.6 maintenance checks
+# v0.8.7 maintenance checks
 
 1. Sort an inventory holding both condition-tracked and condition-less copies
    of the same prefab; the sort must complete and condition-less copies must
@@ -34,6 +34,8 @@
 12. In the F8 sort-order panel, toggle HUD view between `Single Row` and
     `2 x 12`, then cycle UI scale. Verify the inventory HUD updates immediately
     for the local player only and remains saved after reconnect/reload.
+13. In the F8 sort-order panel, click and drag across category rows repeatedly;
+    row highlighting must update without a warning screen or stack overflow.
 
 ---
 

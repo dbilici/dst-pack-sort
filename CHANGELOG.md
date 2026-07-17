@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.7 - Hotfix (2026-07-17)
+
+- Fixed an F8 sort-order panel stack overflow that could happen when row focus
+  changed while the panel refreshed selected category rows during drag or hover.
+- Category rows now draw their selected state with explicit colors instead of
+  toggling the native button selected state, avoiding DST focus recursion.
+
 ## v0.8.6 - Feature Release (2026-07-17)
 
 - Expanded 24-slot inventories can now keep the Vanilla layout as a scaled
